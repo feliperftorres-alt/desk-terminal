@@ -55,6 +55,15 @@ button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:1px solid 
 .now{margin-left:auto;text-align:right;line-height:1.1;white-space:nowrap}
 .now .t{font-size:19px;font-weight:600}
 .now .d{font-size:10px;color:var(--dim);letter-spacing:.06em}
+.cmd{display:flex;align-items:stretch;gap:0;margin:0 8px 6px;border:1px solid var(--amber-dim)}
+.cmd:focus-within{border-color:var(--amber)}
+.cmd-l{display:flex;align-items:center;padding:0 7px;background:var(--amber-dim);color:var(--amber);font:700 10.5px/1 var(--cond);letter-spacing:.12em}
+.cmd input{flex:1;min-width:0;background:#000;border:0;color:var(--amber);font:500 16px/1 var(--mono);padding:7px 8px;text-transform:uppercase;outline:none;-webkit-appearance:none;appearance:none;border-radius:0}
+.cmd input::placeholder{color:var(--mute);text-transform:none;font-size:13px}
+.cmd-go{background:var(--amber);color:#000;font:700 12px/1 var(--cond);letter-spacing:.12em;padding:0 14px}
+.quote{border-bottom:1px solid var(--line)}
+.recent{display:flex;flex-wrap:wrap;gap:3px;padding:6px 10px 0}
+.recent .lab{font:600 9.5px/22px var(--cond);letter-spacing:.12em;color:var(--mute);margin-right:4px}
 .fkeys{display:flex;gap:3px;overflow-x:auto;padding:4px 8px 5px;border-top:1px solid var(--line);scrollbar-width:none}
 .fkeys::-webkit-scrollbar{display:none}
 .fk{display:flex;align-items:center;gap:4px;font:600 11px/1 var(--cond);letter-spacing:.08em;color:var(--fg);padding:3px 6px 3px 3px;white-space:nowrap;border:1px solid var(--line2)}
@@ -198,6 +207,11 @@ tr.stale td{color:var(--mute)!important}
     </div>
     <div class="now"><div class="t" id="nowT">--:--:--</div><div class="d" id="nowD">BRT</div></div>
   </div>
+  <form class="cmd" id="cmd" role="search" autocomplete="off">
+    <label for="q" class="cmd-l">SEARCH</label>
+    <input id="q" name="q" type="search" placeholder="PETR4, AAPL, USDBRL…" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go">
+    <button type="submit" class="cmd-go">GO</button>
+  </form>
   <nav class="fkeys" id="fkeys" aria-label="Sections"></nav>
 </div>
 
@@ -228,7 +242,8 @@ tr.stale td{color:var(--mute)!important}
   Wire: public RSS (Google News, CNBC, Yahoo Finance) via public relay, every 3 min.
   Event dates: Federal Reserve, BCB, BLS, ECB and IBGE published schedules as of 29 Oct 2026; FOMC dates tentative until confirmed.
   Session status ignores exchange holidays. For monitoring only, not for execution or pricing.
-  Keys: 1–9 jump to panel · click a panel header to collapse it.
+  Search: type a ticker and press GO. B3 shares (PETR4), US stocks (AAPL), FX pairs (USDBRL), DI futures (DI1F2030) and names like BRENT, GOLD, DXY all work; for anything else use EXCHANGE:SYMBOL (e.g. NYSE:KO).
+  Keys: / focuses search · 1–9 jump to panel · click a panel header to collapse it.
 </div>
 
 <div class="crawl" aria-label="Headline crawl">
@@ -465,8 +480,8 @@ const PANELS = [
     ["OANDA:BCOUSD","Brent"],["OANDA:WTICOUSD","WTI"],["OANDA:XAUUSD","Gold"],["OANDA:XAGUSD","Silver"],
     ["OANDA:XCUUSD","Copper"],["OANDA:NATGASUSD","Natural Gas"],["OANDA:SOYBNUSD","Soybeans"]])},
   {id:"crypto", col:"L", title:"CRYPTO", badge:["rt","LIVE STREAM"], render:renderCrypto},
+  {id:"chart", col:"R", title:"QUOTE & CHART", badge:["","SEARCH ABOVE OR TAP A SYMBOL"], render:renderChart},
   {id:"movers", col:"R", title:"MOVERS", badge:["dl","GAINERS · LOSERS · ACTIVE"], render:renderMovers},
-  {id:"chart", col:"R", title:"CHART", badge:["","INTRADAY"], render:renderChart},
   {id:"cal", col:"R", title:"CALENDAR", badge:["","US · BR · EU · CN · UK · JP"], render:h=>tvWidget(h,"events",Object.assign({},base,{height:560, importanceFilter:"0,1", countryFilter:"us,br,eu,cn,gb,jp"}))},
   {id:"news", col:"R", title:"NEWS WIRE", badge:["","EVERY 3 MIN"], render:renderWire}
 ];
@@ -530,32 +545,91 @@ function renderMovers(host){
 }
 
 /* ================= chart ================= */
+/* ---- search: turns what the user types into a TradingView symbol ---- */
+const ALIASES = {
+  IBOV:"BMFBOVESPA:IBOV", IBOVESPA:"BMFBOVESPA:IBOV", IFIX:"BMFBOVESPA:IFIX", WIN:"BMFBOVESPA:WIN1!", WDO:"BMFBOVESPA:WDO1!", DOL:"BMFBOVESPA:DOL1!",
+  USDBRL:"FX_IDC:USDBRL", DOLAR:"FX_IDC:USDBRL", "DÓLAR":"FX_IDC:USDBRL", EURBRL:"FX_IDC:EURBRL",
+  SPX:"FOREXCOM:SPXUSD", SP500:"FOREXCOM:SPXUSD", "S&P":"FOREXCOM:SPXUSD", NDX:"FOREXCOM:NSXUSD", NASDAQ:"FOREXCOM:NSXUSD", DOW:"FOREXCOM:DJI", DJI:"FOREXCOM:DJI",
+  VIX:"CAPITALCOM:VIX", DXY:"CAPITALCOM:DXY", DAX:"OANDA:DE30EUR", FTSE:"OANDA:UK100GBP", NIKKEI:"OANDA:JP225USD", HSI:"OANDA:HK33HKD",
+  BRENT:"OANDA:BCOUSD", WTI:"OANDA:WTICOUSD", OIL:"OANDA:BCOUSD", GOLD:"OANDA:XAUUSD", OURO:"OANDA:XAUUSD", SILVER:"OANDA:XAGUSD", COPPER:"OANDA:XCUUSD",
+  BTC:"BITSTAMP:BTCUSD", BITCOIN:"BITSTAMP:BTCUSD", ETH:"BITSTAMP:ETHUSD", SOL:"COINBASE:SOLUSD"
+};
+const FX3 = /^(USD|EUR|GBP|JPY|CHF|AUD|CAD|NZD|BRL|MXN|CLP|CNH|CNY|COP|ARS|ZAR|TRY)(USD|EUR|GBP|JPY|CHF|AUD|CAD|NZD|BRL|MXN|CLP|CNH|CNY|COP|ARS|ZAR|TRY)$/;
+function resolveSymbol(raw){
+  const q = raw.trim().toUpperCase().replace(/\s+/g,"");
+  if(!q) return null;
+  if(q.includes(":")) return q;                                   // already EXCHANGE:SYMBOL
+  if(ALIASES[q]) return ALIASES[q];
+  if(/^DI1[FGHJKMNQUVXZ]\d{2,4}$/.test(q)){                       // DI futures: DI1F30 or DI1F2030
+    const y = q.slice(4); return "BMFBOVESPA:DI1" + q[3] + (y.length===2 ? "20"+y : y);
+  }
+  if(/^[A-Z]{4}(3|4|5|6|11|31|32|33|34|35)$/.test(q)) return "BMFBOVESPA:" + q;   // B3 shares, units, BDRs
+  if(FX3.test(q)) return (q.includes("BRL")||q.includes("MXN")||q.includes("CLP")||q.includes("COP")||q.includes("ARS") ? "FX_IDC:" : "FX:") + q;
+  return q;                                                        // let TradingView resolve (e.g. AAPL, NVDA)
+}
 const CHART_SYMS = [
   ["BMFBOVESPA:IBOV","IBOV"],["FX_IDC:USDBRL","USDBRL"],["BMFBOVESPA:DI1F2031","DI JAN31"],["FOREXCOM:SPXUSD","SPX"],
   ["FOREXCOM:NSXUSD","NDX"],["CAPITALCOM:DXY","DXY"],["OANDA:BCOUSD","BRENT"],["OANDA:XAUUSD","GOLD"],["BITSTAMP:BTCUSD","BTC"]
 ];
+let chartCur = store.get("chart2", CHART_SYMS[0][0]);
+let chartDraw = null;
 function renderChart(host){
+  const quote = el("div","quote");
+  const recent = el("div","recent");
   const bar = el("div","syms");
   const box = el("div","chart");
-  let cur = store.get("chart2", CHART_SYMS[0][0]);
-  if(!CHART_SYMS.some(s=>s[0]===cur)) cur = CHART_SYMS[0][0];
-  const draw = ()=>{
-    for(const b of bar.children) b.setAttribute("aria-pressed", b.dataset.s===cur ? "true":"false");
+  const drawRecent = ()=>{
+    const list = store.get("recent", []);
+    recent.textContent = "";
+    recent.hidden = !list.length;
+    if(!list.length) return;
+    recent.append(el("span","lab","RECENT"));
+    for(const s of list){
+      const b = el("button","sym", s.split(":").pop()); b.dataset.s = s; b.title = s;
+      b.addEventListener("click", ()=>openSymbol(s, false));
+      recent.append(b);
+    }
+  };
+  chartDraw = ()=>{
+    for(const b of host.querySelectorAll(".sym")) b.setAttribute("aria-pressed", b.dataset.s===chartCur ? "true":"false");
+    tvWidget(quote, "symbol-info", Object.assign({}, base, {symbol:chartCur}));
     tvWidget(box, "advanced-chart", {
-      autosize:true, symbol:cur, interval:"15", timezone:BRT, theme:"dark", style:"1", locale:"en",
+      autosize:true, symbol:chartCur, interval:"15", timezone:BRT, theme:"dark", style:"1", locale:"en",
       backgroundColor:"rgba(0,0,0,1)", gridColor:"rgba(255,255,255,0.05)",
       hide_side_toolbar:true, allow_symbol_change:true, save_image:false, calendar:false,
       support_host:"https://www.tradingview.com"
     });
+    drawRecent();
   };
   for(const [s,l] of CHART_SYMS){
     const b = el("button","sym",l); b.dataset.s = s;
-    b.addEventListener("click", ()=>{ cur = s; store.set("chart2", s); draw(); });
+    b.addEventListener("click", ()=>openSymbol(s, false));
     bar.append(b);
   }
-  host.append(bar, box);
-  draw();
+  host.append(quote, recent, bar, box);
+  chartDraw();
 }
+function openSymbol(sym, remember){
+  chartCur = sym; store.set("chart2", sym);
+  if(remember){
+    const list = store.get("recent", []).filter(x=>x!==sym);
+    list.unshift(sym); store.set("recent", list.slice(0,8));
+  }
+  if(chartDraw) chartDraw();
+  jump("chart");
+}
+$("#cmd").addEventListener("submit", e=>{
+  e.preventDefault();
+  const input = $("#q");
+  const sym = resolveSymbol(input.value);
+  if(!sym) return;
+  input.value = "";
+  input.blur();
+  openSymbol(sym, true);
+});
+document.addEventListener("keydown", e=>{
+  if(e.key==="/" && !e.target.closest("input,textarea")){ e.preventDefault(); $("#q").focus(); }
+});
 
 /* ================= rates: DI curve (TradingView) + UST yields (own table) ================= */
 const UST = [
