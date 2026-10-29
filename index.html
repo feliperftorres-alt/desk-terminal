@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Desk Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: sticky terminal header + function-key strip, event hero, then markets (left) and chart/calendar/wire (right); single column in a narrow side window. */
+:root{
+  --bg:#000;
+  --panel:#07080a;
+  --line:#1b1e24;
+  --line2:#2b2f37;
+  --amber:#ffa028;
+  --amber-dim:#5c3a0e;
+  --fg:#ebe8e2;
+  --dim:#8e939c;
+  --mute:#555a64;
+  --up:#25cf7a;
+  --down:#ff4b3e;
+  --hot:#ffd23f;
+  --blue:#59a8ff;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --cond:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font:13px/1.35 var(--mono);font-variant-numeric:tabular-nums;padding-bottom:36px;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:1px solid var(--amber);outline-offset:1px}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line2)}
+.bar{display:flex;align-items:stretch;gap:10px;padding:6px 12px}
+.brand{display:flex;align-items:center;gap:8px;font:700 13px/1 var(--cond);letter-spacing:.08em}
+.brand b{background:var(--amber);color:#000;padding:4px 6px}
+.brand span{color:var(--amber)}
+.now{margin-left:auto;text-align:right;line-height:1.1}
+.now .t{font-size:18px;font-weight:600;color:var(--fg)}
+.now .d{font-size:10.5px;color:var(--dim);letter-spacing:.06em}
+.dots{display:flex;flex-direction:column;justify-content:center;gap:2px;font-size:9.5px;color:var(--dim);letter-spacing:.06em}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mute);margin-right:4px;vertical-align:1px}
+.dot.ok{background:var(--up)}.dot.warn{background:var(--amber)}.dot.bad{background:var(--down)}
+
+.clocks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line)}
+.clk{padding:4px 10px;border-right:1px solid var(--line);min-width:0}
+.clk:last-child{border-right:0}
+.clk .c1{display:flex;justify-content:space-between;gap:4px;font:600 10px/1.2 var(--cond);letter-spacing:.1em;color:var(--dim)}
+.clk .c2{font-size:14px;font-weight:500}
+.pill{font:600 9px/1 var(--cond);letter-spacing:.08em;padding:2px 4px;border:1px solid currentColor;white-space:nowrap}
+.pill.open{color:var(--up)}.pill.closed{color:var(--mute)}.pill.pre{color:var(--amber)}
+
+.fkeys{display:flex;gap:2px;overflow-x:auto;padding:4px 8px;border-top:1px solid var(--line);scrollbar-width:none}
+.fkeys::-webkit-scrollbar{display:none}
+.fk{display:flex;align-items:center;gap:4px;font:600 10.5px/1 var(--cond);letter-spacing:.08em;color:var(--fg);padding:3px 6px 3px 3px;white-space:nowrap;border:1px solid var(--line)}
+.fk i{font-style:normal;background:var(--amber);color:#000;padding:2px 4px;font-family:var(--mono)}
+.fk:hover{border-color:var(--amber)}
+
+/* ---------- ticker tape ---------- */
+.tape{border-bottom:1px solid var(--line);min-height:46px}
+
+/* ---------- event hero ---------- */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);border-bottom:1px solid var(--line2)}
+.next{padding:10px 12px;border-right:1px solid var(--line);min-width:0}
+.lbl{font:600 10px/1 var(--cond);letter-spacing:.14em;color:var(--amber)}
+.next .ttl{font:700 17px/1.15 var(--cond);letter-spacing:.02em;margin:6px 0 2px;text-wrap:balance}
+.next .when{color:var(--dim);font-size:11.5px}
+.next .cd{font-size:26px;font-weight:600;margin-top:6px;color:var(--fg)}
+.next .cd small{font-size:11px;color:var(--dim);margin-left:2px;margin-right:6px}
+.next.soon .cd{color:var(--hot);animation:pulse 1.2s steps(2) infinite}
+.next.live .cd{color:var(--up)}
+@keyframes pulse{50%{opacity:.45}}
+.upc{padding:8px 0;min-width:0}
+.upc .lbl{padding:0 12px 6px}
+.ev{display:grid;grid-template-columns:44px 92px minmax(0,1fr) 64px;gap:6px;align-items:center;padding:3px 12px;font-size:11.5px;border-top:1px solid var(--line)}
+.ev .imp{font:600 9px/1 var(--cond);letter-spacing:.08em;padding:2px 3px;text-align:center;border:1px solid currentColor}
+.imp.h{color:var(--down)}.imp.m{color:var(--amber)}
+.ev .dt{color:var(--dim)}
+.ev .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev .in{text-align:right;color:var(--amber)}
+
+/* ---------- panels ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.col{min-width:0}
+@media (min-width:1100px){
+  .grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+  .col+.col{border-left:1px solid var(--line2)}
+}
+.panel{border-bottom:1px solid var(--line2);background:var(--bg)}
+.ph{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--panel);border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+.ph .k{font-size:10px;background:var(--amber);color:#000;padding:1px 4px}
+.ph h2{margin:0;font:700 12px/1 var(--cond);letter-spacing:.14em;color:var(--amber)}
+.badge{margin-left:auto;font:600 9.5px/1 var(--cond);letter-spacing:.1em;padding:3px 5px;border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+.badge.rt{color:var(--up);border-color:#14432c}
+.badge.dl{color:var(--amber);border-color:var(--amber-dim)}
+.badge.d1{color:var(--blue);border-color:#1d3a5c}
+.ph .tg{color:var(--mute);font-size:12px;width:12px;text-align:center}
+.panel.collapsed .pb{display:none}
+.panel.collapsed .tg{transform:rotate(-90deg)}
+.pb{min-height:40px}
+.note{padding:4px 12px 6px;color:var(--mute);font-size:10.5px}
+
+/* crypto (own stream) */
+.cx{width:100%;border-collapse:collapse}
+.cx th{font:600 9.5px/1 var(--cond);letter-spacing:.12em;color:var(--dim);text-align:right;padding:6px 10px 4px;border-bottom:1px solid var(--line)}
+.cx th:first-child{text-align:left}
+.cx td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.cx td:first-child{text-align:left;font-weight:600}
+.cx td.px{font-size:14px;font-weight:600;transition:background-color .6s}
+.cx .sub{display:block;font-size:9.5px;color:var(--mute);font-weight:400}
+.cx canvas{width:90px;height:22px;display:block;margin-left:auto}
+.up{color:var(--up)}.down{color:var(--down)}
+.fl-up{background:rgba(37,207,122,.28);transition:none!important}
+.fl-down{background:rgba(255,75,62,.28);transition:none!important}
+tr.stale td{color:var(--mute)!important}
+.cxwrap{overflow-x:auto}
+
+/* chart */
+.syms{display:flex;flex-wrap:wrap;gap:3px;padding:6px 10px;border-bottom:1px solid var(--line)}
+.sym{font:600 10.5px/1 var(--cond);letter-spacing:.08em;padding:4px 6px;border:1px solid var(--line2);color:var(--dim)}
+.sym[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.chart{height:430px}
+
+/* wire */
+.wtabs{display:flex;border-bottom:1px solid var(--line)}
+.wt{flex:1;padding:6px;font:600 10.5px/1 var(--cond);letter-spacing:.1em;color:var(--dim);border-right:1px solid var(--line)}
+.wt:last-child{border-right:0}
+.wt[aria-selected="true"]{color:#000;background:var(--amber)}
+.wstat{display:flex;justify-content:space-between;gap:8px;padding:4px 12px;font-size:10px;color:var(--mute);border-bottom:1px solid var(--line)}
+.wire{max-height:560px;overflow-y:auto}
+.wi{display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;padding:6px 12px;border-bottom:1px solid var(--line)}
+.wi:hover{background:var(--panel)}
+.wi .tm{color:var(--dim);font-size:11px;padding-top:1px}
+.wi .hd{font-size:12.5px;line-height:1.35}
+.wi .mt{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;font:600 9.5px/1 var(--cond);letter-spacing:.08em;color:var(--mute)}
+.wi .tag{color:var(--blue)}
+.wi.hot .hd{color:var(--hot)}
+.wi.hot .tag{color:var(--amber)}
+.wi.new{animation:newin 2.4s ease-out}
+@keyframes newin{0%{background:rgba(255,160,40,.32)}100%{background:transparent}}
+.empty{padding:16px 12px;color:var(--dim);font-size:12px}
+
+/* crawl */
+.crawl{position:fixed;left:0;right:0;bottom:0;height:30px;z-index:30;display:flex;background:#000;border-top:1px solid var(--amber)}
+.crawl .cl{flex:none;display:flex;align-items:center;padding:0 8px;background:var(--amber);color:#000;font:700 11px/1 var(--cond);letter-spacing:.14em}
+.crawl .vp{flex:1;overflow:hidden;position:relative;min-width:0}
+.track{position:absolute;top:0;left:0;height:30px;display:flex;align-items:center;white-space:nowrap;will-change:transform}
+.track span{padding:0 22px 0 0;font-size:12.5px}
+.track span::before{content:"■ ";color:var(--mute)}
+.track span.hot{color:var(--hot)}
+.track span.hot::before{color:var(--amber)}
+.crawl:hover .track{animation-play-state:paused}
+@keyframes crawl{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.foot{padding:10px 12px 16px;color:var(--mute);font-size:10.5px;line-height:1.5}
+
+@media (max-width:640px){
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .next{border-right:0;border-bottom:1px solid var(--line)}
+  .clocks{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .clk:nth-child(2){border-right:0}
+  .clk:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .ev{grid-template-columns:40px 88px minmax(0,1fr) 56px}
+}
+@media (prefers-reduced-motion:reduce){
+  .track{animation:none!important}
+  .next.soon .cd,.wi.new{animation:none}
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="bar">
+    <div class="brand"><b>DESK</b><span>MARKET TERMINAL</span></div>
+    <div class="dots" aria-label="Feed status">
+      <div><span class="dot" id="st-tv"></span>QUOTES</div>
+      <div><span class="dot" id="st-cx"></span>CRYPTO</div>
+      <div><span class="dot" id="st-wr"></span>WIRE</div>
+    </div>
+    <div class="now"><div class="t" id="nowT">--:--:--</div><div class="d" id="nowD">BRT</div></div>
+  </div>
+  <div class="clocks" id="clocks"></div>
+  <nav class="fkeys" id="fkeys" aria-label="Sections"></nav>
+</div>
+
+<div class="tape" id="tape"></div>
+
+<div class="hero">
+  <div class="next" id="next">
+    <div class="lbl">NEXT SCHEDULED EVENT</div>
+    <div class="ttl" id="nTitle">—</div>
+    <div class="when" id="nWhen"></div>
+    <div class="cd" id="nCd"></div>
+  </div>
+  <div class="upc">
+    <div class="lbl">UPCOMING · TIMES IN BRT</div>
+    <div id="upc"></div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="col" id="colL"></div>
+  <div class="col" id="colR"></div>
+</div>
+
+<div class="foot">
+  Quotes: TradingView widgets, delay shown on each panel (B3 15 min, CME futures delayed, FX/CFD/US-listed near real time).
+  Crypto: Binance public stream, Coinbase as fallback. Wire: public RSS (Google News, CNBC, Yahoo Finance) via public relay, refreshed every 3 min.
+  Event dates: Federal Reserve, BCB, BLS, ECB and IBGE published schedules as of 29 Oct 2026; FOMC dates are tentative until confirmed.
+  Session status ignores exchange holidays. For monitoring only, not for execution or pricing.
+  Keys: 1–9 jump to panel · click a panel header to collapse.
+</div>
+
+<div class="crawl" aria-label="Headline crawl">
+  <div class="cl">WIRE</div>
+  <div class="vp"><div class="track" id="track"><span>Loading headlines…</span></div></div>
+</div>
+
+<script>
+"use strict";
+/* ================= helpers ================= */
+const $ = (s, r=document) => r.querySelector(s);
+const el = (tag, cls, txt) => { const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
+const store = {
+  get(k, d){ try{ const v=localStorage.getItem("desk."+k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
+  set(k, v){ try{ localStorage.setItem("desk."+k, JSON.stringify(v)); }catch(e){} }
+};
+const BRT = "America/Sao_Paulo";
+const fmtCache = {};
+function parts(date, tz){
+  const key = tz;
+  if(!fmtCache[key]) fmtCache[key] = new Intl.DateTimeFormat("en-US",{timeZone:tz,hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",weekday:"short"});
+  const o={};
+  for(const p of fmtCache[key].formatToParts(date)) o[p.type]=p.value;
+  return {year:+o.year,month:+o.month,day:+o.day,hour:+o.hour%24,minute:+o.minute,second:+o.second,weekday:o.weekday};
+}
+function tzOffsetMin(date, tz){
+  const p = parts(date, tz);
+  return (Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,p.second) - Math.floor(date.getTime()/1000)*1000)/60000;
+}
+function zonedToUtc(y, mo, d, h, mi, tz){
+  const guess = Date.UTC(y, mo-1, d, h, mi);
+  let off = tzOffsetMin(new Date(guess), tz);
+  let t = guess - off*60000;
+  const off2 = tzOffsetMin(new Date(t), tz);
+  if(off2 !== off) t = guess - off2*60000;
+  return new Date(t);
+}
+const pad = n => String(n).padStart(2,"0");
+const MON = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+const MONc = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/* ================= clocks & sessions ================= */
+const MARKETS = [
+  {id:"ny", city:"NEW YORK", tz:"America/New_York", sess(p){ const m=p.hour*60+p.minute; if(m>=570&&m<960) return "open"; if(m>=240&&m<570) return "pre"; return "closed"; }, names:{open:"NYSE OPEN",pre:"PRE-MKT",closed:"NYSE CLSD"}},
+  {id:"sp", city:"SAO PAULO", tz:BRT, sess(p, now){
+      const nyOff = tzOffsetMin(now,"America/New_York");      // -240 in US DST, -300 otherwise
+      const close = nyOff === -240 ? 17*60 : 18*60;
+      const m=p.hour*60+p.minute; if(m>=600&&m<close) return "open"; if(m>=570&&m<600) return "pre"; return "closed"; }, names:{open:"B3 OPEN",pre:"PRE-OPEN",closed:"B3 CLSD"}},
+  {id:"ld", city:"LONDON", tz:"Europe/London", sess(p){ const m=p.hour*60+p.minute; if(m>=480&&m<990) return "open"; return "closed"; }, names:{open:"LSE OPEN",closed:"LSE CLSD"}},
+  {id:"tk", city:"TOKYO", tz:"Asia/Tokyo", sess(p){ const m=p.hour*60+p.minute; if((m>=540&&m<690)||(m>=750&&m<930)) return "open"; if(m>=690&&m<750) return "pre"; return "closed"; }, names:{open:"TSE OPEN",pre:"LUNCH",closed:"TSE CLSD"}}
+];
+function buildClocks(){
+  const c = $("#clocks");
+  for(const m of MARKETS){
+    const d = el("div","clk"); d.id="clk-"+m.id;
+    const r1 = el("div","c1"); r1.append(el("span",null,m.city)); const pl=el("span","pill closed","—"); r1.append(pl);
+    d.append(r1, el("div","c2","--:--"));
+    c.append(d);
+  }
+}
+function tickClocks(now){
+  const bp = parts(now, BRT);
+  $("#nowT").textContent = `${pad(bp.hour)}:${pad(bp.minute)}:${pad(bp.second)}`;
+  $("#nowD").textContent = `${bp.weekday.toUpperCase()} ${pad(bp.day)} ${MON[bp.month-1]} ${bp.year} · BRT`;
+  for(const m of MARKETS){
+    const p = parts(now, m.tz);
+    const box = $("#clk-"+m.id);
+    box.querySelector(".c2").textContent = `${pad(p.hour)}:${pad(p.minute)}`;
+    const wk = p.weekday==="Sat"||p.weekday==="Sun";
+    const s = wk ? "closed" : m.sess(p, now);
+    const pl = box.querySelector(".pill");
+    pl.className = "pill " + s;
+    pl.textContent = wk ? "WEEKEND" : m.names[s];
+  }
+}
+
+/* ================= scheduled events ================= */
+// Sources: federalreserve.gov FOMC calendar; BCB Copom calendars 2026/2027; BLS Employment Situation & CPI schedules; ECB governing council calendar; IBGE release calendar.
+const EVENTS = [];
+function addEv(dates, h, mi, tz, imp, name, region, fn){
+  for(const ds of dates){
+    const [y,m,d] = ds.split("-").map(Number);
+    EVENTS.push({t:zonedToUtc(y,m,d,h,mi,tz), imp, name: fn ? fn(y,m,d,ds) : name, region});
+  }
+}
+const SEP = new Set(["2026-12-09","2027-03-17","2027-06-09","2027-09-15","2027-12-08"]);
+addEv(["2026-12-09","2027-01-27","2027-03-17","2027-04-28","2027-06-09","2027-07-28","2027-09-15","2027-10-27","2027-12-08"],14,0,"America/New_York","h",null,"US",
+  (y,m,d,ds)=> SEP.has(ds) ? "FOMC Rate Decision + SEP" : "FOMC Rate Decision");
+addEv(["2026-11-04","2026-12-09","2027-01-27","2027-03-17","2027-04-28","2027-06-16","2027-08-04","2027-09-22","2027-10-27","2027-12-08"],18,30,BRT,"h","Copom Selic Decision","BR");
+const prevMonth = m => MONc[(m+10)%12];
+addEv(["2026-11-06","2026-12-04","2027-01-08","2027-02-05","2027-03-05","2027-04-02","2027-05-07","2027-06-04","2027-07-02","2027-08-06","2027-09-03","2027-10-08","2027-11-05","2027-12-03"],8,30,"America/New_York","h",null,"US",
+  (y,m)=>`US Nonfarm Payrolls (${prevMonth(m)})`);
+addEv(["2026-11-10","2026-12-10","2027-01-13","2027-02-11","2027-03-10","2027-04-13","2027-05-12","2027-06-10","2027-07-14","2027-08-11","2027-09-14","2027-10-14","2027-11-10","2027-12-10"],8,30,"America/New_York","h",null,"US",
+  (y,m)=>`US CPI (${prevMonth(m)})`);
+addEv(["2026-12-17","2027-02-04","2027-03-18","2027-04-29","2027-06-10","2027-07-22","2027-09-09","2027-10-28","2027-12-16"],14,15,"Europe/Berlin","m","ECB Rate Decision","EU");
+addEv(["2026-11-12"],9,0,BRT,"h","Brazil IPCA (Oct)","BR");
+addEv(["2026-11-26"],9,0,BRT,"m","Brazil IPCA-15 (Nov)","BR");
+addEv(["2026-12-02"],9,0,BRT,"m","Brazil GDP (Q3)","BR");
+EVENTS.sort((a,b)=>a.t-b.t);
+
+function fmtBRT(d){
+  const p = parts(d, BRT);
+  return {date:`${pad(p.day)} ${MON[p.month-1]}`, time:`${pad(p.hour)}:${pad(p.minute)}`, wd:p.weekday.toUpperCase()};
+}
+function shortIn(ms){
+  const m = Math.floor(ms/60000);
+  if(m < 60) return `${m}m`;
+  const h = Math.floor(m/60);
+  if(h < 48) return `${h}h ${pad(m%60)}m`;
+  return `${Math.floor(h/24)}d ${h%24}h`;
+}
+let lastUpcKey = "";
+function tickEvents(now){
+  const LIVE_WINDOW = 45*60000;
+  const upcoming = EVENTS.filter(e => e.t - now > -LIVE_WINDOW);
+  const nx = $("#next");
+  if(!upcoming.length){
+    $("#nTitle").textContent = "No events in the schedule";
+    $("#nWhen").textContent = "Update the EVENTS list in this file";
+    $("#nCd").textContent = "";
+    return;
+  }
+  const e = upcoming[0];
+  const diff = e.t - now;
+  const f = fmtBRT(e.t);
+  $("#nTitle").textContent = `${e.region} · ${e.name}`;
+  $("#nWhen").textContent = `${f.wd} ${f.date} · ${f.time} BRT`;
+  const cd = $("#nCd");
+  nx.classList.toggle("soon", diff > 0 && diff < 15*60000);
+  nx.classList.toggle("live", diff <= 0);
+  if(diff <= 0){
+    cd.textContent = "RELEASED · SEE CALENDAR";
+  } else {
+    const s = Math.floor(diff/1000), d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60), sec = s%60;
+    cd.innerHTML = "";
+    const add = (v,u)=>{ cd.append(document.createTextNode(v)); cd.append(el("small",null,u)); };
+    if(d) add(String(d),"D");
+    add(pad(h),"H"); add(pad(m),"M"); add(pad(sec),"S");
+  }
+  const list = upcoming.slice(1, 8);
+  const key = list.map(x=>x.t.getTime()).join(",") + "|" + Math.floor(now/60000);
+  if(key === lastUpcKey) return;
+  lastUpcKey = key;
+  const box = $("#upc"); box.innerHTML = "";
+  for(const x of list){
+    const r = el("div","ev");
+    const fx = fmtBRT(x.t);
+    r.append(el("span","imp "+x.imp, x.imp==="h"?"HIGH":"MED"));
+    r.append(el("span","dt", `${fx.date} ${fx.time}`));
+    const nm = el("span","nm", `${x.region} · ${x.name}`); nm.title = x.name;
+    r.append(nm);
+    r.append(el("span","in", shortIn(x.t - now)));
+    box.append(r);
+  }
+}
+
+/* ================= TradingView widgets ================= */
+const TV = "https://s3.tradingview.com/external-embedding/embed-widget-";
+let tvOk = 0, tvErr = 0;
+function tvStatus(){
+  const d = $("#st-tv");
+  d.className = "dot " + (tvErr && !tvOk ? "bad" : tvErr ? "warn" : tvOk ? "ok" : "");
+}
+function tvWidget(host, kind, cfg){
+  host.innerHTML = "";
+  const wrap = el("div","tradingview-widget-container");
+  wrap.append(el("div","tradingview-widget-container__widget"));
+  const s = document.createElement("script");
+  s.src = TV + kind + ".js"; s.async = true; s.type = "text/javascript";
+  s.text = JSON.stringify(cfg);
+  s.onload = ()=>{ tvOk++; tvStatus(); };
+  s.onerror = ()=>{ tvErr++; tvStatus(); host.append(el("div","empty","Quotes widget could not load. Check your connection; the page retries after waking from sleep.")); };
+  wrap.append(s);
+  host.append(wrap);
+}
+const base = {isTransparent:true, colorTheme:"dark", locale:"en", width:"100%"};
+function quotes(host, title, symbols){
+  tvWidget(host, "market-quotes", Object.assign({}, base, {
+    height: 58 + symbols.length*44,
+    showSymbolLogo:false,
+    backgroundColor:"rgba(0,0,0,0)",
+    symbolsGroups:[{name:title, symbols:symbols.map(([name,displayName])=>({name,displayName}))}]
+  }));
+}
+
+/* ================= panels ================= */
+const PANELS = [
+  {id:"brazil", col:"L", title:"BRAZIL", badge:["dl","B3 · 15 MIN DELAY"], note:"Spot USD/BRL and EWZ trade near real time; B3 lines lag 15 min.", render:h=>quotes(h,"Brazil",[
+    ["BMFBOVESPA:IBOV","Ibovespa"],["BMFBOVESPA:WIN1!","Mini Ibov Fut"],["BMFBOVESPA:IFIX","IFIX"],
+    ["FX_IDC:USDBRL","USD/BRL Spot"],["BMFBOVESPA:WDO1!","USD/BRL Fut (WDO)"],["AMEX:EWZ","EWZ (NYSE)"],
+    ["BMFBOVESPA:PETR4","Petrobras PN"],["BMFBOVESPA:VALE3","Vale ON"],["BMFBOVESPA:ITUB4","Itau PN"]])},
+  {id:"rates", col:"L", title:"RATES", badge:["dl","DI 15M · YIELDS NEAR RT"], note:"DI1 futures quoted as annual rate (%). BR10Y = 10y NTN-F yield.", render:h=>quotes(h,"Rates",[
+    ["BMFBOVESPA:DI1F2027","DI1 Jan-27"],["BMFBOVESPA:DI1F2029","DI1 Jan-29"],["BMFBOVESPA:DI1F2031","DI1 Jan-31"],["BMFBOVESPA:DI1F2035","DI1 Jan-35"],
+    ["TVC:BR10Y","Brazil 10Y"],["TVC:US02Y","UST 2Y"],["TVC:US10Y","UST 10Y"],["TVC:US30Y","UST 30Y"],["TVC:DE10Y","Bund 10Y"],["TVC:JP10Y","JGB 10Y"]])},
+  {id:"global", col:"L", title:"GLOBAL EQUITY", badge:["rt","CFD · NEAR RT"], render:h=>quotes(h,"Global",[
+    ["FOREXCOM:SPXUSD","S&P 500"],["FOREXCOM:NSXUSD","Nasdaq 100"],["FOREXCOM:DJI","Dow Jones"],["CAPITALCOM:VIX","VIX"],
+    ["INDEX:DEU40","DAX"],["TVC:SX5E","Euro Stoxx 50"],["FOREXCOM:UKXGBP","FTSE 100"],["INDEX:NKY","Nikkei 225"],["TVC:HSI","Hang Seng"]])},
+  {id:"fx", col:"L", title:"FX", badge:["rt","NEAR RT"], render:h=>quotes(h,"FX",[
+    ["TVC:DXY","DXY"],["FX_IDC:USDBRL","USD/BRL"],["FX:EURUSD","EUR/USD"],["FX:USDJPY","USD/JPY"],["FX:GBPUSD","GBP/USD"],
+    ["FX_IDC:USDMXN","USD/MXN"],["FX_IDC:USDCLP","USD/CLP"],["FX:USDCNH","USD/CNH"]])},
+  {id:"cmdty", col:"L", title:"COMMODITIES", badge:["rt","SPOT/CFD · NEAR RT"], render:h=>quotes(h,"Commodities",[
+    ["TVC:UKOIL","Brent"],["TVC:USOIL","WTI"],["TVC:GOLD","Gold"],["TVC:SILVER","Silver"],["OANDA:XCUUSD","Copper"],["NYMEX:NG1!","Nat Gas (fut, delayed)"]])},
+  {id:"crypto", col:"L", title:"CRYPTO", badge:["rt","LIVE STREAM"], render:renderCrypto},
+  {id:"chart", col:"R", title:"CHART", badge:["","INTRADAY"], render:renderChart},
+  {id:"cal", col:"R", title:"ECONOMIC CALENDAR", badge:["","US · BR · EU · CN · UK · JP"], render:h=>tvWidget(h,"events",Object.assign({},base,{height:560, importanceFilter:"0,1", countryFilter:"us,br,eu,cn,gb,jp"}))},
+  {id:"news", col:"R", title:"NEWS WIRE", badge:["","EVERY 3 MIN"], render:renderWire}
+];
+
+function buildPanels(){
+  const collapsed = new Set(store.get("collapsed", []));
+  const fk = $("#fkeys");
+  PANELS.forEach((p, i)=>{
+    const key = i+1;
+    const sec = el("section","panel"); sec.id = "p-"+p.id;
+    if(collapsed.has(p.id)) sec.classList.add("collapsed");
+    const ph = el("header","ph"); ph.setAttribute("role","button"); ph.tabIndex = 0;
+    ph.append(el("span","k", String(key)), el("h2",null,p.title));
+    const b = el("span","badge "+p.badge[0], p.badge[1]); ph.append(b);
+    ph.append(el("span","tg","▾"));
+    const toggle = ()=>{
+      sec.classList.toggle("collapsed");
+      const s = new Set(store.get("collapsed", []));
+      sec.classList.contains("collapsed") ? s.add(p.id) : s.delete(p.id);
+      store.set("collapsed", [...s]);
+    };
+    ph.addEventListener("click", toggle);
+    ph.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } });
+    const pb = el("div","pb");
+    sec.append(ph, pb);
+    if(p.note){ const n = el("div","note", p.note); sec.append(n); }
+    $(p.col==="L" ? "#colL" : "#colR").append(sec);
+    p.render(pb);
+    const btn = el("button","fk"); btn.append(el("i",null,String(key)), document.createTextNode(p.title));
+    btn.addEventListener("click", ()=>jump(p.id));
+    fk.append(btn);
+  });
+}
+function jump(id){
+  const sec = $("#p-"+id); if(!sec) return;
+  sec.classList.remove("collapsed");
+  const topH = $(".top").offsetHeight;
+  window.scrollTo({top: sec.getBoundingClientRect().top + window.scrollY - topH, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+}
+document.addEventListener("keydown", e=>{
+  if(e.target.closest("input,textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const n = parseInt(e.key, 10);
+  if(n>=1 && n<=PANELS.length) jump(PANELS[n-1].id);
+});
+
+/* ================= chart ================= */
+const CHART_SYMS = [
+  ["BMFBOVESPA:IBOV","IBOV"],["FX_IDC:USDBRL","USDBRL"],["BMFBOVESPA:DI1F2031","DI JAN31"],["FOREXCOM:SPXUSD","SPX"],
+  ["TVC:US10Y","UST10Y"],["TVC:DXY","DXY"],["TVC:UKOIL","BRENT"],["TVC:GOLD","GOLD"],["BITSTAMP:BTCUSD","BTC"]
+];
+function renderChart(host){
+  const bar = el("div","syms");
+  const box = el("div","chart");
+  let cur = store.get("chart", CHART_SYMS[0][0]);
+  if(!CHART_SYMS.some(s=>s[0]===cur)) cur = CHART_SYMS[0][0];
+  const draw = ()=>{
+    for(const b of bar.children) b.setAttribute("aria-pressed", b.dataset.s===cur ? "true":"false");
+    tvWidget(box, "advanced-chart", {
+      autosize:true, symbol:cur, interval:"15", timezone:BRT, theme:"dark", style:"1", locale:"en",
+      backgroundColor:"rgba(0,0,0,1)", gridColor:"rgba(255,255,255,0.05)",
+      hide_side_toolbar:true, allow_symbol_change:true, save_image:false, calendar:false,
+      support_host:"https://www.tradingview.com"
+    });
+  };
+  for(const [s,l] of CHART_SYMS){
+    const b = el("button","sym",l); b.dataset.s = s;
+    b.addEventListener("click", ()=>{ cur = s; store.set("chart", s); draw(); });
+    bar.append(b);
+  }
+  host.append(bar, box);
+  draw();
+}
+
+/* ================= crypto stream ================= */
+const COINS = [
+  {sym:"BTC", bin:"btcusdt", cb:"BTC-USD", dp:0},
+  {sym:"ETH", bin:"ethusdt", cb:"ETH-USD", dp:2},
+  {sym:"SOL", bin:"solusdt", cb:"SOL-USD", dp:2}
+];
+const cx = {};
+function renderCrypto(host){
+  const w = el("div","cxwrap");
+  const t = el("table","cx");
+  t.innerHTML = "<thead><tr><th>PAIR</th><th>LAST</th><th>24H CHG</th><th>24H RANGE</th><th>15 MIN</th></tr></thead>";
+  const tb = el("tbody");
+  for(const c of COINS){
+    const tr = el("tr"); tr.id = "cx-"+c.sym;
+    const td0 = el("td"); td0.append(document.createTextNode(c.sym+"/USD")); const src = el("span","sub","—"); td0.append(src);
+    const px = el("td","px","—");
+    const ch = el("td"); const chA = el("span",null,"—"); const chP = el("span","sub",""); ch.append(chA, chP);
+    const rg = el("td"); const hi = el("span",null,"—"); const lo = el("span","sub",""); rg.append(hi, lo);
+    const sp = el("td"); const cv = document.createElement("canvas"); sp.append(cv);
+    tr.append(td0, px, ch, rg, sp); tb.append(tr);
+    cx[c.sym] = {c, tr, src, px, chA, chP, hi, lo, cv, last:null, open:null, hist:[], t:0};
+  }
+  t.append(tb); w.append(t); host.append(w);
+  host.append(el("div","note","Ticks flash green/red on every trade. Row greys out if no tick for 30 s."));
+  connectCrypto();
+  setInterval(sampleCrypto, 10000);
+  setInterval(checkCryptoStale, 5000);
+}
+const fmtN = (v, dp) => v.toLocaleString("en-US",{minimumFractionDigits:dp, maximumFractionDigits:dp});
+function cxUpdate(sym, price, open, high, low, source){
+  const r = cx[sym]; if(!r || !isFinite(price) || price<=0) return;
+  if(r.last && Math.abs(price/r.last - 1) > 0.25) return;           // sanity filter
+  const prev = r.last;
+  r.last = price; r.open = open; r.t = Date.now();
+  r.tr.classList.remove("stale");
+  r.src.textContent = source;
+  r.px.textContent = fmtN(price, r.c.dp);
+  if(prev != null && price !== prev){
+    const cls = price > prev ? "fl-up" : "fl-down";
+    r.px.classList.remove("fl-up","fl-down"); void r.px.offsetWidth; r.px.classList.add(cls);
+    clearTimeout(r.ft); r.ft = setTimeout(()=>r.px.classList.remove(cls), 450);
+  }
+  if(isFinite(open) && open>0){
+    const d = price - open, pct = d/open*100;
+    const cls = d >= 0 ? "up" : "down";
+    r.chA.className = cls; r.chA.textContent = (d>=0?"+":"") + fmtN(d, r.c.dp);
+    r.chP.className = "sub " + cls; r.chP.textContent = (pct>=0?"+":"") + pct.toFixed(2) + "%";
+  }
+  if(isFinite(high) && isFinite(low)){ r.hi.textContent = "H " + fmtN(high, r.c.dp); r.lo.textContent = "L " + fmtN(low, r.c.dp); }
+  if(!r.hist.length) { r.hist.push(price); drawSpark(r); }
+  cxSeen();
+}
+function sampleCrypto(){
+  for(const k in cx){ const r = cx[k]; if(r.last==null) continue; r.hist.push(r.last); if(r.hist.length>90) r.hist.shift(); drawSpark(r); }
+}
+function drawSpark(r){
+  const cv = r.cv, dpr = window.devicePixelRatio||1, W = 90, H = 22;
+  cv.width = W*dpr; cv.height = H*dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  const a = r.hist; if(a.length<2) return;
+  let mn = Math.min(...a), mx = Math.max(...a); if(mx===mn){ mx+=1; mn-=1; }
+  const up = a[a.length-1] >= a[0];
+  const col = getComputedStyle(document.documentElement).getPropertyValue(up?"--up":"--down").trim();
+  const x = i => 1 + i*(W-4)/(a.length-1), y = v => H-2 - (v-mn)/(mx-mn)*(H-4);
+  g.beginPath(); a.forEach((v,i)=> i?g.lineTo(x(i),y(v)):g.moveTo(x(i),y(v)));
+  g.strokeStyle = col; g.lineWidth = 1.2; g.stroke();
+  g.lineTo(x(a.length-1),H); g.lineTo(x(0),H); g.closePath(); g.globalAlpha = .14; g.fillStyle = col; g.fill(); g.globalAlpha = 1;
+  g.beginPath(); g.arc(x(a.length-1), y(a[a.length-1]), 1.8, 0, 7); g.fillStyle = col; g.fill();
+}
+let cxLastSeen = 0;
+function cxSeen(){ cxLastSeen = Date.now(); $("#st-cx").className = "dot ok"; }
+function checkCryptoStale(){
+  const now = Date.now();
+  for(const k in cx){ const r = cx[k]; if(r.t && now - r.t > 30000) r.tr.classList.add("stale"); }
+  if(cxLastSeen && now - cxLastSeen > 30000) $("#st-cx").className = "dot warn";
+}
+let ws = null, wsMode = "binance", wsTries = 0, wsWatch = null;
+function connectCrypto(){
+  try{ if(ws){ ws.onclose = null; ws.close(); } }catch(e){}
+  clearTimeout(wsWatch);
+  const startedAt = Date.now();
+  let gotData = false;
+  if(wsMode === "binance"){
+    ws = new WebSocket("wss://stream.binance.com:9443/stream?streams=" + COINS.map(c=>c.bin+"@miniTicker").join("/"));
+    ws.onmessage = ev=>{
+      try{
+        const m = JSON.parse(ev.data).data; if(!m) return;
+        const c = COINS.find(c=>c.bin.toUpperCase()===m.s); if(!c) return;
+        gotData = true; wsTries = 0;
+        cxUpdate(c.sym, +m.c, +m.o, +m.h, +m.l, "BINANCE · USDT");
+      }catch(e){}
+    };
+  } else {
+    ws = new WebSocket("wss://ws-feed.exchange.coinbase.com");
+    ws.onopen = ()=> ws.send(JSON.stringify({type:"subscribe", product_ids:COINS.map(c=>c.cb), channels:["ticker"]}));
+    ws.onmessage = ev=>{
+      try{
+        const m = JSON.parse(ev.data); if(m.type!=="ticker") return;
+        const c = COINS.find(c=>c.cb===m.product_id); if(!c) return;
+        gotData = true; wsTries = 0;
+        cxUpdate(c.sym, +m.price, +m.open_24h, +m.high_24h, +m.low_24h, "COINBASE · USD");
+      }catch(e){}
+    };
+  }
+  const fail = ()=>{
+    wsTries++;
+    if(!gotData) wsMode = wsMode === "binance" ? "coinbase" : "binance";   // switch source if this one never delivered
+    $("#st-cx").className = "dot " + (wsTries > 3 ? "bad" : "warn");
+    setTimeout(connectCrypto, Math.min(30000, 1500 * 2 ** Math.min(wsTries,5)));
+  };
+  ws.onclose = fail;
+  ws.onerror = ()=>{ try{ ws.close(); }catch(e){} };
+  wsWatch = setTimeout(()=>{ if(!gotData){ try{ ws.onclose = null; ws.close(); }catch(e){} fail(); } }, 10000);
+}
+
+/* ================= news wire ================= */
+const FEEDS = [
+  {src:"Google News", url:"https://news.google.com/rss/search?q=Brazil+(economy+OR+Selic+OR+Copom+OR+Ibovespa+OR+%22Brazilian+real%22+OR+fiscal+OR+Lula+OR+Haddad+OR+Petrobras)+when:1d&hl=en-US&gl=US&ceid=US:en", br:true},
+  {src:"Google News", url:"https://news.google.com/rss/search?q=(%22Federal+Reserve%22+OR+%22Treasury+yields%22+OR+payrolls+OR+%22CPI%22+OR+tariffs+OR+ECB)+markets+when:1d&hl=en-US&gl=US&ceid=US:en"},
+  {src:"Google News", url:"https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en"},
+  {src:"CNBC", url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"},
+  {src:"CNBC", url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258"},
+  {src:"Yahoo Finance", url:"https://finance.yahoo.com/news/rssindex"}
+];
+const PROXIES = [
+  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+  u => "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(u),
+  u => "https://corsproxy.io/?url=" + encodeURIComponent(u)
+];
+const TAGS = [
+  ["BRAZIL", /\b(brazil\w*|brasil|ibovespa|bovespa|copom|selic|lula|haddad|galipolo|gal[ií]polo|petrobras|ipca)\b/i],
+  ["CENTRAL BANKS", /\b(fed|fomc|federal reserve|ecb|boj|bank of japan|bank of england|central bank|rate cuts?|rate hikes?|interest rates?)\b/i],
+  ["MACRO", /\b(cpi|inflation|payrolls?|jobs report|nonfarm|unemployment|jobless|gdp|pmi|retail sales|recession)\b/i],
+  ["POLITICS", /\b(election\w*|congress|senate|white house|trump|tariffs?|sanctions|shutdown|parliament|budget deal)\b/i],
+  ["COMMODITIES", /\b(oil|opec\+?|brent|crude|gold|copper|iron ore|natural gas|soybeans?|coffee)\b/i],
+  ["CHINA", /\b(china|chinese|beijing|yuan|pboc)\b/i],
+  ["MARKETS", /\b(stocks?|s&p|nasdaq|dow|treasur\w*|yields?|bonds?|dollar|earnings|wall street|equities|futures)\b/i]
+];
+const HOT = /\b(copom|selic|fomc|rate (cut|hike|decision)s?|payrolls?|nonfarm|cpi|ipca|tariffs?|default|downgrade|shutdown|emergency|breaking|fiscal|intervention)\b/i;
+let wireItems = [], seen = new Set(), firstLoad = true, proxyPref = store.get("proxy", 0), wireAt = 0, wireTab = "wire";
+
+function renderWire(host){
+  const tabs = el("div","wtabs"); tabs.setAttribute("role","tablist");
+  const t1 = el("button","wt","MARKET WIRE"); t1.setAttribute("role","tab");
+  const t2 = el("button","wt","TOP STORIES"); t2.setAttribute("role","tab");
+  tabs.append(t1, t2);
+  const stat = el("div","wstat"); stat.id = "wstat"; stat.append(el("span",null,"Connecting…"), el("span",null,""));
+  const list = el("div","wire"); list.id = "wire";
+  list.append(el("div","empty","Loading the wire. Headlines appear here and in the crawl at the bottom."));
+  const top = el("div"); top.hidden = true;
+  host.append(tabs, stat, list, top);
+  let topBuilt = false;
+  const sel = tab=>{
+    wireTab = tab;
+    t1.setAttribute("aria-selected", tab==="wire"); t2.setAttribute("aria-selected", tab==="top");
+    list.hidden = stat.hidden = tab!=="wire"; top.hidden = tab!=="top";
+    if(tab==="top" && !topBuilt){ topBuilt = true; tvWidget(top,"timeline",Object.assign({},base,{feedMode:"all_symbols", displayMode:"regular", height:600})); }
+    store.set("wiretab", tab);
+  };
+  t1.addEventListener("click", ()=>sel("wire")); t2.addEventListener("click", ()=>sel("top"));
+  sel(store.get("wiretab","wire"));
+  loadWire();
+  setInterval(()=>{ if(!document.hidden) loadWire(); }, 180000);
+}
+async function fetchVia(url){
+  for(let k=0; k<PROXIES.length; k++){
+    const idx = (proxyPref + k) % PROXIES.length;
+    const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), 12000);
+    try{
+      const r = await fetch(PROXIES[idx](url), {signal:ctl.signal, cache:"no-store"});
+      clearTimeout(to);
+      if(!r.ok) continue;
+      const txt = await r.text();
+      if(!/<(rss|feed|item)\b/i.test(txt)) continue;
+      if(idx !== proxyPref){ proxyPref = idx; store.set("proxy", idx); }
+      return txt;
+    }catch(e){ clearTimeout(to); }
+  }
+  throw new Error("all relays failed");
+}
+function parseFeed(xml, feed){
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  const out = [];
+  for(const it of doc.querySelectorAll("item, entry")){
+    let title = (it.querySelector("title")?.textContent || "").replace(/\s+/g," ").trim();
+    if(!title) continue;
+    const linkEl = it.querySelector("link");
+    const link = (linkEl?.getAttribute("href") || linkEl?.textContent || "").trim();
+    const dt = new Date(it.querySelector("pubDate, published, updated")?.textContent || Date.now());
+    let src = it.querySelector("source")?.textContent?.trim() || feed.src;
+    if(feed.src==="Google News"){
+      const m = title.match(/^(.*)\s+-\s+([^-]{2,60})$/);
+      if(m){ title = m[1].trim(); if(!it.querySelector("source")) src = m[2].trim(); }
+    }
+    let tag = null;
+    for(const [name, re] of TAGS){ if(re.test(title)){ tag = name; break; } }
+    if(feed.br && !tag) tag = "BRAZIL";
+    if(!tag) continue;                                   // keep the wire market-relevant
+    out.push({title, link, src, t: isNaN(dt) ? new Date() : dt, tag, hot: HOT.test(title)});
+  }
+  return out;
+}
+const keyOf = t => t.toLowerCase().replace(/[^a-z0-9]+/g," ").trim().slice(0,70);
+async function loadWire(){
+  const res = await Promise.allSettled(FEEDS.map(f => fetchVia(f.url).then(x => parseFeed(x, f))));
+  const okN = res.filter(r=>r.status==="fulfilled").length;
+  const map = new Map(wireItems.map(i=>[keyOf(i.title), i]));
+  const cutoff = Date.now() - 36*3600000;
+  const fresh = [];
+  for(const r of res){
+    if(r.status!=="fulfilled") continue;
+    for(const it of r.value){
+      if(it.t.getTime() < cutoff || it.t.getTime() > Date.now() + 3600000) continue;
+      const k = keyOf(it.title);
+      if(map.has(k)) continue;
+      it.isNew = !firstLoad && !seen.has(k);
+      seen.add(k); map.set(k, it); fresh.push(it);
+    }
+  }
+  wireItems = [...map.values()].filter(i=>i.t.getTime()>=cutoff).sort((a,b)=>b.t-a.t).slice(0,80);
+  if(okN) wireAt = Date.now();
+  firstLoad = false;
+  $("#st-wr").className = "dot " + (okN===FEEDS.length ? "ok" : okN ? "warn" : "bad");
+  drawWire(okN);
+  if(fresh.length || okN===0) drawCrawl();
+}
+function drawWire(okN){
+  const stat = $("#wstat");
+  if(stat){
+    const p = wireAt ? fmtBRT(new Date(wireAt)) : null;
+    stat.children[0].textContent = okN===0 ? (wireAt ? `RELAY DOWN · LAST OK ${p.time} BRT` : "NEWS RELAY UNREACHABLE · RETRY IN 3 MIN") : `UPDATED ${p.time} BRT`;
+    stat.children[1].textContent = `${okN}/${FEEDS.length} FEEDS · ${wireItems.length} ITEMS`;
+  }
+  const list = $("#wire"); if(!list) return;
+  if(!wireItems.length){
+    list.innerHTML = "";
+    list.append(el("div","empty", okN ? "No market headlines in the last 36 hours yet." : "Waiting for the news relay. Quotes and calendar keep working meanwhile; switch to TOP STORIES for TradingView's feed."));
+    return;
+  }
+  list.innerHTML = "";
+  for(const it of wireItems){
+    const a = el("a","wi" + (it.hot?" hot":"") + (it.isNew?" new":""));
+    a.href = it.link; a.target = "_blank"; a.rel = "noopener noreferrer";
+    a.append(el("span","tm", fmtBRT(it.t).time));
+    const body = el("div");
+    body.append(el("div","hd", it.title));
+    const mt = el("div","mt"); mt.append(el("span","tag", it.tag), el("span",null, it.src.toUpperCase()), el("span",null, ago(it.t)));
+    body.append(mt); a.append(body); list.append(a);
+    it.isNew = false;
+  }
+}
+function ago(t){ const m = Math.max(0, Math.round((Date.now()-t)/60000)); return m<60 ? `${m}M AGO` : `${Math.floor(m/60)}H AGO`; }
+function drawCrawl(){
+  const tr = $("#track");
+  const items = wireItems.slice(0, 24);
+  tr.style.animation = "none"; tr.innerHTML = "";
+  if(!items.length){ tr.append(el("span",null,"News relay unavailable · quotes and calendar remain live")); return; }
+  for(let pass=0; pass<2; pass++){
+    for(const it of items){
+      const s = el("span", it.hot ? "hot" : "", `${fmtBRT(it.t).time}  ${it.tag}  ${it.title}`);
+      tr.append(s);
+    }
+  }
+  requestAnimationFrame(()=>{
+    const w = tr.scrollWidth / 2;
+    tr.style.animation = `crawl ${Math.max(40, w/70)}s linear infinite`;
+  });
+}
+
+/* ================= main loop ================= */
+function tick(){
+  const now = new Date();
+  tickClocks(now);
+  tickEvents(now);
+}
+let lastBeat = Date.now();
+setInterval(()=>{
+  const n = Date.now();
+  if(n - lastBeat > 5*60000){ location.reload(); return; }   // laptop woke from sleep: reload all feeds
+  lastBeat = n;
+  tick();
+}, 1000);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && Date.now()-wireAt > 180000) loadWire(); });
+window.addEventListener("online", ()=>{ loadWire(); connectCrypto(); });
+
+buildClocks();
+tick();
+tvWidget($("#tape"), "ticker-tape", Object.assign({}, base, {
+  displayMode:"compact", showSymbolLogo:false,
+  symbols:[
+    {proName:"FOREXCOM:SPXUSD",title:"S&P 500"},{proName:"FOREXCOM:NSXUSD",title:"Nasdaq 100"},
+    {proName:"BMFBOVESPA:IBOV",title:"Ibovespa"},{proName:"FX_IDC:USDBRL",title:"USD/BRL"},
+    {proName:"TVC:DXY",title:"DXY"},{proName:"TVC:US10Y",title:"UST 10Y"},
+    {proName:"BMFBOVESPA:DI1F2031",title:"DI Jan-31"},{proName:"TVC:UKOIL",title:"Brent"},
+    {proName:"TVC:GOLD",title:"Gold"},{proName:"BITSTAMP:BTCUSD",title:"Bitcoin"}
+  ]
+}));
+buildPanels();
+</script>
+</body>
+</html>
