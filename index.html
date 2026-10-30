@@ -151,7 +151,37 @@ tr.stale td{color:var(--mute)!important}
 
 /* wire */
 .wstat{display:flex;justify-content:space-between;gap:8px;padding:5px 12px;font-size:10px;color:var(--mute);border-bottom:1px solid var(--line)}
-.wire{max-height:600px;overflow-y:auto}
+.wire{height:520px;overflow-y:auto;overscroll-behavior:contain}
+#full .panel{border-bottom:2px solid var(--amber-dim)}
+.spot{display:block;position:relative;padding:12px 14px 14px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,rgba(255,160,40,.07),transparent 70%)}
+.spot .sp-meta{font:600 10.5px/1.2 var(--cond);letter-spacing:.12em;color:var(--amber)}
+.spot.hot .sp-meta{color:var(--hot)}
+.spot .sp-hd{font:700 clamp(17px,2.4vw,23px)/1.22 var(--cond);letter-spacing:.01em;margin-top:6px;text-wrap:balance;min-height:2.44em}
+.spot .sp-bar{position:absolute;left:0;bottom:0;height:2px;background:var(--amber);width:100%;transform-origin:left;animation:spbar 8s linear}
+.spot.paused .sp-bar{animation-play-state:paused}
+.spot.swap .sp-hd,.spot.swap .sp-meta{animation:spin .45s ease-out}
+@keyframes spbar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes spin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.nbar{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line)}
+.chips{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.chips::-webkit-scrollbar{display:none}
+.chip{font:600 10.5px/1 var(--cond);letter-spacing:.08em;padding:5px 7px;border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+.chip[aria-pressed="true"]{color:#000;background:var(--amber);border-color:var(--amber)}
+.chip.auto{flex:none}
+.chip.auto[aria-pressed="true"]{background:transparent;color:var(--up);border-color:#16482f}
+.ncols{display:grid;grid-template-columns:minmax(0,1fr)}
+.ncols.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.ncols.two .ncol+.ncol{border-left:1px solid var(--line2)}
+.pb.wide .chip[data-f="BRAZIL"],.pb.wide .chip[data-f="GLOBAL"]{display:none}
+.nh{display:flex;justify-content:space-between;padding:6px 12px;font:700 11px/1 var(--cond);letter-spacing:.14em;color:var(--fg);background:var(--panel);border-bottom:1px solid var(--line)}
+.nh span+span{color:var(--mute);font-weight:600;font-size:9.5px}
+.wi .rg{padding:1px 3px;border:1px solid currentColor}
+.wi .rg.BR{color:var(--up)}
+.wi .rg.GL{color:var(--blue)}
+.wi .tag{color:var(--dim)}
+.wi .nw{color:#000;background:var(--amber);padding:1px 3px}
+.wi.old .hd{color:var(--dim)}
+.wi.hot .hd{color:var(--hot)}
 .wi{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
 .wi:hover{background:var(--panel)}
 .wi .tm{color:var(--dim);font-size:11.5px;padding-top:1px}
@@ -231,6 +261,8 @@ tr.stale td{color:var(--mute)!important}
   </div>
 </div>
 
+<div id="full"></div>
+
 <div class="grid">
   <div class="col" id="colL"></div>
   <div class="col" id="colR"></div>
@@ -238,8 +270,8 @@ tr.stale td{color:var(--mute)!important}
 
 <div class="foot">
   Quotes: TradingView widgets; delay shown on each panel (B3 15 min, US stocks delayed via Cboe One, FX and CFDs real time).
-  US Treasury yields: Yahoo Finance via public relay, every 60 s. Crypto: Binance public stream, Coinbase as fallback.
-  Wire: public RSS (Google News, CNBC, Yahoo Finance) via public relay, every 3 min.
+  Sovereign yields: CNBC quotes, every 30 s. Crypto: Binance public stream, Coinbase as fallback.
+  News river: Valor International, CNBC, MarketWatch and NYT direct every 60 s; Guardian, BBC, MercoPress, Rio Times and Google News through free relays every 10 min. Topic and HOT tags are keyword-based.
   Event dates: Federal Reserve, BCB, BLS, ECB and IBGE published schedules as of 29 Oct 2026; FOMC dates tentative until confirmed.
   Session status ignores exchange holidays. For monitoring only, not for execution or pricing.
   Search: type a ticker and press GO. B3 shares (PETR4), US stocks (AAPL), FX pairs (USDBRL), DI futures (DI1F2030) and names like BRENT, GOLD, DXY all work; for anything else use EXCHANGE:SYMBOL (e.g. NYSE:KO).
@@ -294,28 +326,14 @@ function flash(cell, dir){
   clearTimeout(cell._ft); cell._ft = setTimeout(()=>cell.classList.remove(cls), 450);
 }
 
-/* ================= public relay (for RSS and yields) ================= */
-const PROXIES = [
-  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-  u => "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(u),
-  u => "https://corsproxy.io/?url=" + encodeURIComponent(u)
-];
-let proxyPref = store.get("proxy", 0);
-async function fetchVia(url, isValid){
-  for(let k=0; k<PROXIES.length; k++){
-    const idx = (proxyPref + k) % PROXIES.length;
-    const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), 12000);
-    try{
-      const r = await fetch(PROXIES[idx](url), {signal:ctl.signal, cache:"no-store"});
-      clearTimeout(to);
-      if(!r.ok) continue;
-      const txt = await r.text();
-      if(!isValid(txt)) continue;
-      if(idx !== proxyPref){ proxyPref = idx; store.set("proxy", idx); }
-      return txt;
-    }catch(e){ clearTimeout(to); }
-  }
-  throw new Error("all relays failed");
+/* ================= network helper ================= */
+async function getText(url, ms=10000){
+  const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), ms);
+  try{
+    const r = await fetch(url, {signal:ctl.signal, cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return await r.text();
+  } finally { clearTimeout(to); }
 }
 
 /* ================= clocks & sessions ================= */
@@ -463,6 +481,7 @@ const US_STOCKS = [
   ["NYSE:BRK.B","Berkshire B"],["NYSE:JPM","JPMorgan"],["NYSE:XOM","Exxon Mobil"],["NYSE:V","Visa"]
 ];
 const PANELS = [
+  {id:"news", col:"F", title:"NEWS RIVER", badge:["rt","BRAZIL · GLOBAL · LIVE"], render:renderRiver},
   {id:"brazil", col:"L", title:"BRAZIL", badge:["dl","B3 15 MIN · SPOT FX RT"], render:h=>board(h,"Brazil",[
     ["BMFBOVESPA:IBOV","Ibovespa"],["BMFBOVESPA:WIN1!","Mini Ibov Fut"],["BMFBOVESPA:IFIX","IFIX"],
     ["FX_IDC:USDBRL","USD/BRL Spot"],["BMFBOVESPA:WDO1!","USD/BRL Fut WDO"],["AMEX:EWZ","EWZ"]])},
@@ -472,7 +491,7 @@ const PANELS = [
     ["FOREXCOM:SPXUSD","S&P 500"],["FOREXCOM:NSXUSD","Nasdaq 100"],["FOREXCOM:DJI","Dow Jones"],["CAPITALCOM:VIX","VIX"],
     ["OANDA:DE30EUR","DAX"],["OANDA:EU50EUR","Euro Stoxx 50"],["OANDA:UK100GBP","FTSE 100"],
     ["OANDA:JP225USD","Nikkei 225"],["OANDA:HK33HKD","Hang Seng"],["OANDA:CN50USD","China A50"]])},
-  {id:"rates", col:"L", title:"RATES", badge:["dl","DI 15 MIN · UST 60 S"], render:renderRates},
+  {id:"rates", col:"L", title:"RATES", badge:["dl","DI 15 MIN · YIELDS 30 S"], render:renderRates},
   {id:"fx", col:"L", title:"FX", badge:["rt","REAL TIME"], render:h=>board(h,"FX",[
     ["CAPITALCOM:DXY","Dollar Index"],["FX_IDC:USDBRL","USD/BRL"],["FX:EURUSD","EUR/USD"],["FX:USDJPY","USD/JPY"],["FX:GBPUSD","GBP/USD"],
     ["FX_IDC:USDMXN","USD/MXN"],["FX_IDC:USDCLP","USD/CLP"],["FX:USDCNH","USD/CNH"]])},
@@ -483,7 +502,7 @@ const PANELS = [
   {id:"chart", col:"R", title:"QUOTE & CHART", badge:["","SEARCH ABOVE OR TAP A SYMBOL"], render:renderChart},
   {id:"movers", col:"R", title:"MOVERS", badge:["dl","GAINERS · LOSERS · ACTIVE"], render:renderMovers},
   {id:"cal", col:"R", title:"CALENDAR", badge:["","US · BR · EU · CN · UK · JP"], render:h=>tvWidget(h,"events",Object.assign({},base,{height:560, importanceFilter:"0,1", countryFilter:"us,br,eu,cn,gb,jp"}))},
-  {id:"news", col:"R", title:"NEWS WIRE", badge:["","EVERY 3 MIN"], render:renderWire}
+  {id:"top", col:"R", title:"TOP STORIES", badge:["","TRADINGVIEW FEED"], render:h=>tvWidget(h,"timeline",Object.assign({},base,{feedMode:"all_symbols", displayMode:"regular", height:620}))}
 ];
 
 function buildPanels(){
@@ -505,7 +524,7 @@ function buildPanels(){
     ph.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } });
     const pb = el("div","pb");
     sec.append(ph, pb);
-    $(p.col==="L" ? "#colL" : "#colR").append(sec);
+    $(p.col==="F" ? "#full" : p.col==="L" ? "#colL" : "#colR").append(sec);
     p.render(pb, sec);
     const btn = el("button","fk"); btn.append(el("i",null,key || "·"), document.createTextNode(p.title));
     btn.addEventListener("click", ()=>jump(p.id));
@@ -631,18 +650,21 @@ document.addEventListener("keydown", e=>{
   if(e.key==="/" && !e.target.closest("input,textarea")){ e.preventDefault(); $("#q").focus(); }
 });
 
-/* ================= rates: DI curve (TradingView) + UST yields (own table) ================= */
+/* ================= rates: DI curve (TradingView) + sovereign yields (own table, CNBC quotes) ================= */
 const UST = [
-  {y:"^IRX", label:"UST 3M"},
-  {y:"^FVX", label:"UST 5Y"},
-  {y:"^TNX", label:"UST 10Y"},
-  {y:"^TYX", label:"UST 30Y"}
+  {y:"US3M", label:"UST 3M"},
+  {y:"US2Y", label:"UST 2Y"},
+  {y:"US5Y", label:"UST 5Y"},
+  {y:"US10Y", label:"UST 10Y"},
+  {y:"US30Y", label:"UST 30Y"},
+  {y:"DE10Y", label:"Bund 10Y"},
+  {y:"BR10Y", label:"Brazil 10Y"}
 ];
 const yd = {};
 function renderRates(host, sec){
   const tabs = el("div","sub-tabs");
   const di = el("div"), us = el("div");
-  const b1 = el("button","st","BRAZIL DI CURVE"), b2 = el("button","st","US TREASURIES");
+  const b1 = el("button","st","BRAZIL DI CURVE"), b2 = el("button","st","SOVEREIGN YIELDS");
   tabs.append(b1, b2);
   host.append(tabs, di, us);
   board(di, "DI1 Futures", [
@@ -657,8 +679,10 @@ function renderRates(host, sec){
     tr.append(c0,c1,c2,c3); tb.append(tr);
     yd[u.y] = {u, tr, c1, c2, c3, v:null};
   }
-  const sp = el("tr","derived"); sp.innerHTML = "<td>10Y – 3M</td><td>—</td><td>—</td><td></td>"; tb.append(sp);
-  yd.spread = sp;
+  yd.spreads = [
+    {a:"US10Y", b:"US2Y", label:"UST 10Y – 2Y"},
+    {a:"BR10Y", b:"US10Y", label:"Brazil – UST 10Y"}
+  ].map(s=>{ const tr = el("tr","derived"); tr.append(el("td",null,s.label), el("td",null,"—"), el("td",null,"—"), el("td","flat","SPREAD")); tb.append(tr); return Object.assign(s,{tr}); });
   t.append(tb); w.append(t);
   const msg = el("div","msg"); msg.id = "ydmsg"; msg.hidden = true;
   us.append(w, msg);
@@ -666,41 +690,52 @@ function renderRates(host, sec){
   const sel = x=>{ cur = x; store.set("rates", x); di.hidden = x!=="di"; us.hidden = x!=="us"; b1.setAttribute("aria-selected", x==="di"); b2.setAttribute("aria-selected", x==="us"); };
   b1.addEventListener("click", ()=>sel("di")); b2.addEventListener("click", ()=>sel("us"));
   sel(cur);
-  addNote(sec, "DI1 quoted as annual rate (%), 15 min delay. Treasuries from Yahoo Finance, refreshed every 60 s.");
+  addNote(sec, "DI1 quoted as annual rate (%), 15 min delay. Sovereign yields from CNBC quotes, refreshed every 30 s; changes in basis points vs. prior close.");
   loadYields();
-  setInterval(()=>{ if(!document.hidden) loadYields(); }, 60000);
+  setInterval(()=>{ if(!document.hidden) loadYields(); }, 30000);
 }
+let ydBusy = false;
 async function loadYields(){
+  if(ydBusy) return; ydBusy = true;
   let ok = 0;
-  await Promise.all(UST.map(async u=>{
-    try{
-      const txt = await fetchVia(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(u.y)}?range=1d&interval=5m`, x=>x.includes('"regularMarketPrice"'));
-      const meta = JSON.parse(txt).chart.result[0].meta;
-      const v = +meta.regularMarketPrice, prev = +(meta.previousClose ?? meta.chartPreviousClose);
-      if(!isFinite(v) || v<=0 || v>30) return;
-      const r = yd[u.y];
+  try{
+    const url = "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" +
+      encodeURIComponent(UST.map(u=>u.y).join("|")) + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1";
+    const q = JSON.parse(await getText(url)).FormattedQuoteResult.FormattedQuote;
+    for(const z of q){
+      const r = yd[z.symbol]; if(!r) continue;
+      const v = parseFloat(String(z.last).replace(/[%,]/g,""));
+      const ch = parseFloat(String(z.change).replace(/[%,+]/g,""));
+      if(!isFinite(v) || v<=0 || v>40){ r.tr.classList.add("stale"); continue; }
       if(r.v != null && v !== r.v) flash(r.c1, v > r.v ? 1 : -1);
-      r.v = v; r.prev = prev;
+      r.v = v; r.prev = isFinite(ch) ? v - ch : null;
       r.c1.textContent = v.toFixed(3) + "%";
-      if(isFinite(prev) && prev>0){
-        const bp = (v - prev)*100;
+      if(isFinite(ch)){
+        const bp = ch*100;
         r.c2.className = bp > 0.05 ? "up" : bp < -0.05 ? "down" : "flat";
         r.c2.textContent = (bp>=0?"+":"") + bp.toFixed(1);
-      }
-      r.c3.textContent = meta.regularMarketTime ? fmtBRT(new Date(meta.regularMarketTime*1000)).time : "—";
+      } else { r.c2.className = "flat"; r.c2.textContent = "—"; }
+      const ts = new Date(z.last_time || z.last_timedate);
+      r.c3.textContent = isNaN(ts) ? "—" : (Date.now()-ts > 20*3600000 ? fmtBRT(ts).date : fmtBRT(ts).time);
       r.tr.classList.remove("stale");
       ok++;
-    }catch(e){ yd[u.y].tr.classList.add("stale"); }
-  }));
-  const a = yd["^TNX"], b = yd["^IRX"];
-  if(a.v != null && b.v != null){
-    const s = (a.v - b.v)*100, cells = yd.spread.children;
-    cells[1].textContent = (s>=0?"+":"") + s.toFixed(0) + " bp";
-    if(isFinite(a.prev) && isFinite(b.prev)){ const ds = s - (a.prev - b.prev)*100; cells[2].textContent = (ds>=0?"+":"") + ds.toFixed(1); }
+    }
+  }catch(e){ for(const u of UST) yd[u.y].tr.classList.add("stale"); }
+  ydBusy = false;
+  for(const s of yd.spreads){
+    const a = yd[s.a], b = yd[s.b], cells = s.tr.children;
+    if(a.v == null || b.v == null) continue;
+    const sp = (a.v - b.v)*100;
+    cells[1].textContent = (sp>=0?"+":"") + sp.toFixed(0) + " bp";
+    if(a.prev != null && b.prev != null){
+      const ds = sp - (a.prev - b.prev)*100;
+      cells[2].className = ds > 0.05 ? "up" : ds < -0.05 ? "down" : "flat";
+      cells[2].textContent = (ds>=0?"+":"") + ds.toFixed(1);
+    }
   }
   $("#st-yd").className = "dot " + (ok===UST.length ? "ok" : ok ? "warn" : "bad");
   const m = $("#ydmsg");
-  if(m){ m.hidden = ok > 0; m.textContent = "Treasury yields unavailable: the public relay did not answer. Retrying every 60 s."; }
+  if(m){ m.hidden = ok > 0; m.textContent = "Yields unavailable right now: the CNBC quote service did not answer. Retrying every 30 s."; }
 }
 
 /* ================= crypto stream ================= */
@@ -810,132 +845,242 @@ function connectCrypto(){
   wsWatch = setTimeout(()=>{ if(!gotData){ try{ ws.onclose = null; ws.close(); }catch(e){} fail(); } }, 10000);
 }
 
-/* ================= news wire ================= */
+/* ================= news river ================= */
+// Direct feeds answer the browser themselves (CORS open) and are polled every 60 s.
+// Relayed feeds go through free public services and are polled every 10 min, best effort.
+const R2J = u => "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(u);
+const LOL = u => "https://api.cors.lol/?url=" + encodeURIComponent(u);
 const FEEDS = [
-  {src:"Google News", url:"https://news.google.com/rss/search?q=Brazil+(economy+OR+Selic+OR+Copom+OR+Ibovespa+OR+%22Brazilian+real%22+OR+fiscal+OR+Lula+OR+Haddad+OR+Petrobras)+when:1d&hl=en-US&gl=US&ceid=US:en", br:true},
-  {src:"Google News", url:"https://news.google.com/rss/search?q=(%22Federal+Reserve%22+OR+%22Treasury+yields%22+OR+payrolls+OR+%22CPI%22+OR+tariffs+OR+ECB)+markets+when:1d&hl=en-US&gl=US&ceid=US:en"},
-  {src:"Google News", url:"https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en"},
-  {src:"CNBC", url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"},
-  {src:"CNBC", url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258"},
-  {src:"Yahoo Finance", url:"https://finance.yahoo.com/news/rssindex"}
+  {id:"valor",  src:"Valor Intl",   url:"https://valorinternational.globo.com/rss/valorinternational", mode:"direct", region:"BR", keep:"BRAZIL"},
+  {id:"cnbcT",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", mode:"direct", keep:"MARKETS"},
+  {id:"cnbcM",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069", mode:"direct", keep:"MARKETS"},
+  {id:"cnbcE",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258", mode:"direct", keep:"MACRO"},
+  {id:"cnbcW",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362", mode:"direct", keep:"WORLD"},
+  {id:"mwB",    src:"MarketWatch",  url:"https://feeds.content.dowjones.io/public/rss/mw_bulletins", mode:"direct", keep:"MARKETS"},
+  {id:"nytB",   src:"NYT",          url:"https://rss.nytimes.com/services/xml/rss/nyt/Business.xml", mode:"direct", keep:"BUSINESS"},
+  {id:"nytE",   src:"NYT",          url:"https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml", mode:"direct", keep:"MACRO"},
+  {id:"nytW",   src:"NYT",          url:"https://rss.nytimes.com/services/xml/rss/nyt/World.xml", mode:"direct"},
+  {id:"guard",  src:"Guardian",     url:"https://www.theguardian.com/business/rss", mode:"lol", keep:"BUSINESS"},
+  {id:"bbc",    src:"BBC",          url:"https://feeds.bbci.co.uk/news/business/rss.xml", mode:"r2j", keep:"BUSINESS"},
+  {id:"merco",  src:"MercoPress",   url:"https://en.mercopress.com/rss/brazil", mode:"r2j", region:"BR", keep:"BRAZIL"},
+  {id:"riot",   src:"Rio Times",    url:"https://www.riotimesonline.com/feed/", mode:"r2j", region:"BR"},
+  {id:"gnBR",   src:"Google News",  url:"https://news.google.com/rss/search?q=Brazil+(Selic+OR+Copom+OR+Ibovespa+OR+real+OR+fiscal+OR+Lula+OR+Haddad+OR+Petrobras)+when:1d&hl=en-US&gl=US&ceid=US:en", mode:"r2j", region:"BR", keep:"BRAZIL"}
 ];
-const TAGS = [
-  ["BRAZIL", /\b(brazil\w*|brasil|ibovespa|bovespa|copom|selic|lula|haddad|gal[ií]polo|petrobras|ipca)\b/i],
-  ["CENTRAL BANKS", /\b(fed|fomc|federal reserve|ecb|boj|bank of japan|bank of england|central bank|rate cuts?|rate hikes?|interest rates?)\b/i],
-  ["MACRO", /\b(cpi|inflation|payrolls?|jobs report|nonfarm|unemployment|jobless|gdp|pmi|retail sales|recession)\b/i],
-  ["POLITICS", /\b(election\w*|congress|senate|white house|trump|tariffs?|sanctions|shutdown|parliament|budget deal)\b/i],
-  ["COMMODITIES", /\b(oil|opec\+?|brent|crude|gold|copper|iron ore|natural gas|soybeans?|coffee)\b/i],
-  ["CHINA", /\b(china|chinese|beijing|yuan|pboc)\b/i],
-  ["MARKETS", /\b(stocks?|s&p|nasdaq|dow|treasur\w*|yields?|bonds?|dollar|earnings|wall street|equities|futures)\b/i]
+const BR_RE = /\b(brazil\w*|brasil|ibovespa|bovespa|b3|copom|selic|lula|haddad|gal[ií]polo|petrobras|vale|ita[uú]|bradesco|ipca|real's|reais|s[aã]o paulo|bras[ií]lia|banco central do brasil)\b/i;
+const TOPICS = [
+  ["CENTRAL BANKS", /\b(fed|fomc|federal reserve|powell|ecb|lagarde|boj|bank of japan|bank of england|central bank|copom|selic|rate cuts?|rate hikes?|interest rates?|monetary policy)\b/i],
+  ["MACRO", /\b(cpi|pce|inflation|payrolls?|jobs report|nonfarm|unemployment|jobless|gdp|pmi|retail sales|recession|ipca|economy|economic growth)\b/i],
+  ["POLITICS", /\b(election\w*|congress|senate|white house|trump|lula|tariffs?|sanctions|shutdown|parliament|budget|fiscal|minister|government|war|ceasefire)\b/i],
+  ["COMMODITIES", /\b(oil|opec\+?|brent|crude|gold|copper|iron ore|natural gas|soy\w*|coffee|sugar|corn|wheat|lithium)\b/i],
+  ["EARNINGS", /\b(earnings|quarterly (profit|results|revenue)|beats|misses|guidance|q[1-4] (profit|results|sales))\b/i],
+  ["MARKETS", /\b(stocks?|s&p|nasdaq|dow|treasur\w*|yields?|bonds?|dollar|wall street|equities|futures|ibovespa|shares|rally|selloff|sell-off|ipo)\b/i]
 ];
-const HOT = /\b(copom|selic|fomc|rate (cut|hike|decision)s?|payrolls?|nonfarm|cpi|ipca|tariffs?|default|downgrade|shutdown|emergency|breaking|fiscal|intervention)\b/i;
-let wireItems = [], seen = new Set(), firstLoad = true, wireAt = 0;
+const HOT = /\b(breaking|copom|selic|fomc|rate (cut|hike|decision)s?|cuts? rates|raises? rates|holds? rates|payrolls?|nonfarm|cpi|pce|ipca|tariffs?|default|downgrade|shutdown|emergency|intervention|crash|plunge|surge|soar|tumble|record high)\b/i;
+const FILTERS = ["ALL","BRAZIL","GLOBAL","CENTRAL BANKS","MACRO","POLITICS","MARKETS","EARNINGS","COMMODITIES"];
+const NEWS = {items:[], byKey:new Map(), firstDone:false, at:0, nextAt:0, ok:{}, filter:store.get("nfilter","ALL"), auto:store.get("nauto", true), spot:0};
+const keyOf = t => t.toLowerCase().replace(/[^a-z0-9]+/g," ").trim().slice(0,72);
+const wideNews = matchMedia("(min-width:900px)");
 
-function renderWire(host){
-  const tabs = el("div","sub-tabs"); tabs.setAttribute("role","tablist");
-  const t1 = el("button","st","MARKET WIRE"), t2 = el("button","st","TOP STORIES");
-  t1.setAttribute("role","tab"); t2.setAttribute("role","tab");
-  tabs.append(t1, t2);
-  const wrapW = el("div");
-  const stat = el("div","wstat"); stat.id = "wstat"; stat.append(el("span",null,"CONNECTING TO NEWS RELAY…"), el("span",null,""));
-  const list = el("div","wire"); list.id = "wire";
-  list.append(el("div","msg","Loading the wire. Headlines appear here and in the crawl at the bottom."));
-  wrapW.append(stat, list);
-  const top = el("div");
-  host.append(tabs, wrapW, top);
-  let topBuilt = false;
-  const sel = tab=>{
-    t1.setAttribute("aria-selected", tab==="wire"); t2.setAttribute("aria-selected", tab==="top");
-    wrapW.hidden = tab!=="wire"; top.hidden = tab!=="top";
-    if(tab==="top" && !topBuilt){ topBuilt = true; tvWidget(top,"timeline",Object.assign({},base,{feedMode:"all_symbols", displayMode:"regular", height:620})); }
-    store.set("wiretab", tab);
-  };
-  t1.addEventListener("click", ()=>sel("wire")); t2.addEventListener("click", ()=>sel("top"));
-  sel(store.get("wiretab","wire"));
-  loadWire();
-  setInterval(()=>{ if(!document.hidden) loadWire(); }, 180000);
-}
-function parseFeed(xml, feed){
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
-  const out = [];
-  for(const it of doc.querySelectorAll("item, entry")){
-    let title = (it.querySelector("title")?.textContent || "").replace(/\s+/g," ").trim();
-    if(!title) continue;
-    const linkEl = it.querySelector("link");
-    const link = (linkEl?.getAttribute("href") || linkEl?.textContent || "").trim();
-    const dt = new Date(it.querySelector("pubDate, published, updated")?.textContent || Date.now());
-    let src = it.querySelector("source")?.textContent?.trim() || feed.src;
-    if(feed.src==="Google News"){
-      const m = title.match(/^(.*)\s+-\s+([^-]{2,60})$/);
-      if(m){ title = m[1].trim(); if(!it.querySelector("source")) src = m[2].trim(); }
-    }
-    let tag = null;
-    for(const [name, re] of TAGS){ if(re.test(title)){ tag = name; break; } }
-    if(feed.br && !tag) tag = "BRAZIL";
-    if(!tag) continue;
-    out.push({title, link, src, t: isNaN(dt) ? new Date() : dt, tag, hot: HOT.test(title)});
+function renderRiver(host){
+  const spot = el("a","spot"); spot.id = "spot"; spot.target = "_blank"; spot.rel = "noopener noreferrer";
+  spot.append(el("div","sp-meta","TOP STORY"), el("div","sp-hd","Loading the news river…"), el("div","sp-bar"));
+  const bar = el("div","nbar");
+  const chips = el("div","chips"); chips.id = "nchips";
+  for(const f of FILTERS){
+    const b = el("button","chip", f); b.dataset.f = f;
+    b.addEventListener("click", ()=>{ NEWS.filter = f; store.set("nfilter", f); drawRiver(true); });
+    chips.append(b);
   }
-  return out;
+  const auto = el("button","chip auto","AUTO-SCROLL"); auto.id = "nauto";
+  auto.addEventListener("click", ()=>{ NEWS.auto = !NEWS.auto; store.set("nauto", NEWS.auto); auto.setAttribute("aria-pressed", NEWS.auto); });
+  auto.setAttribute("aria-pressed", NEWS.auto);
+  bar.append(chips, auto);
+  const stat = el("div","wstat"); stat.id = "nstat"; stat.append(el("span",null,"CONNECTING…"), el("span",null,""));
+  const cols = el("div","ncols"); cols.id = "ncols";
+  host.append(spot, bar, stat, cols);
+  spot.addEventListener("mouseenter", ()=>spot.classList.add("paused"));
+  spot.addEventListener("mouseleave", ()=>spot.classList.remove("paused"));
+  wideNews.addEventListener?.("change", ()=>drawRiver(true));
+  loadNews(true);
+  setInterval(()=>{ if(!document.hidden) loadNews(false); }, 60000);
+  setInterval(()=>{ if(!document.hidden) loadNews(true); }, 600000);
+  setInterval(rotateSpot, 8000);
+  setInterval(tickNewsStatus, 1000);
+  setInterval(()=>{ for(const s of document.querySelectorAll(".wi .ago")) s.textContent = ago(new Date(+s.dataset.t)); }, 30000);
+  requestAnimationFrame(drift);
 }
-const keyOf = t => t.toLowerCase().replace(/[^a-z0-9]+/g," ").trim().slice(0,70);
-async function loadWire(){
-  const res = await Promise.allSettled(FEEDS.map(f => fetchVia(f.url, x=>/<(rss|feed|item)\b/i.test(x)).then(x => parseFeed(x, f))));
-  const okN = res.filter(r=>r.status==="fulfilled").length;
-  const map = new Map(wireItems.map(i=>[keyOf(i.title), i]));
+function parseRss(xml){
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  return [...doc.querySelectorAll("item, entry")].map(it=>{
+    const linkEl = it.querySelector("link");
+    return {
+      title: it.querySelector("title")?.textContent || "",
+      link: (linkEl?.getAttribute("href") || linkEl?.textContent || "").trim(),
+      date: it.querySelector("pubDate, published, updated")?.textContent || "",
+      source: it.querySelector("source")?.textContent || ""
+    };
+  });
+}
+async function fetchFeed(f){
+  if(f.mode === "r2j"){
+    const j = JSON.parse(await getText(R2J(f.url), 12000));
+    if(j.status !== "ok") throw new Error("rss2json " + j.status);
+    return j.items.map(i=>({title:i.title, link:i.link, date:(i.pubDate||"").replace(" ","T") + "Z", source:""}));
+  }
+  const txt = await getText(f.mode === "lol" ? LOL(f.url) : f.url, 12000);
+  if(!/<(rss|feed|item)\b/i.test(txt)) throw new Error("not a feed");
+  return parseRss(txt);
+}
+function classify(raw, f){
+  let title = (raw.title||"").replace(/<[^>]+>/g,"").replace(/\s+/g," ").trim();
+  if(!title) return null;
+  let src = f.src;
+  if(f.id === "gnBR"){
+    const m = title.match(/^(.*)\s+-\s+([^-]{2,60})$/);
+    if(m){ title = m[1].trim(); src = m[2].trim(); }
+  }
+  const t = new Date(raw.date);
+  const region = (f.region === "BR" || BR_RE.test(title)) ? "BR" : "GL";
+  let topic = null;
+  for(const [name, re] of TOPICS){ if(re.test(title)){ topic = name; break; } }
+  if(!topic) topic = f.keep || (region === "BR" ? "BRAZIL" : null);
+  if(!topic) return null;                                    // feeds without a default keep only market-relevant items
+  return {title, link:raw.link, src, t: isNaN(t) ? new Date() : t, region, topic, hot: HOT.test(title)};
+}
+let newsBusy = false;
+async function loadNews(includeRelayed){
+  if(newsBusy) return; newsBusy = true;
+  const feeds = FEEDS.filter(f => includeRelayed || f.mode === "direct");
+  const res = await Promise.allSettled(feeds.map(f => fetchFeed(f).then(list => ({f, list}))));
   const cutoff = Date.now() - 36*3600000;
-  let fresh = 0;
-  for(const r of res){
-    if(r.status!=="fulfilled") continue;
-    for(const it of r.value){
+  const added = [];
+  res.forEach((r, i)=>{
+    const f = feeds[i];
+    NEWS.ok[f.id] = r.status === "fulfilled";
+    if(r.status !== "fulfilled") return;
+    for(const raw of r.value.list){
+      const it = classify(raw, f); if(!it) continue;
       const ts = it.t.getTime();
       if(ts < cutoff || ts > Date.now() + 3600000) continue;
       const k = keyOf(it.title);
-      if(map.has(k)) continue;
-      it.isNew = !firstLoad && !seen.has(k);
-      seen.add(k); map.set(k, it); fresh++;
+      if(NEWS.byKey.has(k)) continue;
+      it.k = k; it.firstSeen = Date.now();
+      it.isNew = NEWS.firstDone;
+      NEWS.byKey.set(k, it); added.push(it);
+    }
+  });
+  NEWS.items = [...NEWS.byKey.values()].filter(i=>i.t.getTime() >= cutoff).sort((a,b)=>b.t-a.t).slice(0, 240);
+  NEWS.byKey = new Map(NEWS.items.map(i=>[i.k, i]));
+  if(res.some(r=>r.status==="fulfilled")) NEWS.at = Date.now();
+  NEWS.nextAt = Date.now() + 60000;
+  const okN = FEEDS.filter(f=>NEWS.ok[f.id]).length, tried = FEEDS.filter(f=>f.id in NEWS.ok).length;
+  $("#st-wr").className = "dot " + (okN === tried && okN ? "ok" : okN ? "warn" : "bad");
+  const first = !NEWS.firstDone;
+  NEWS.firstDone = true;
+  newsBusy = false;
+  if(first || added.length) { drawRiver(first); drawCrawl(); if(first) rotateSpot(); }
+  tickNewsStatus();
+}
+function passes(it){
+  const f = NEWS.filter;
+  if(f === "ALL") return true;
+  if(f === "BRAZIL") return it.region === "BR";
+  if(f === "GLOBAL") return it.region === "GL";
+  return it.topic === f;
+}
+function itemEl(it){
+  const a = el("a","wi" + (it.hot?" hot":"") + (it.isNew?" new":"") + (Date.now()-it.t > 4*3600000 ? " old" : ""));
+  a.href = it.link; a.target = "_blank"; a.rel = "noopener noreferrer";
+  a.append(el("span","tm", fmtBRT(it.t).time));
+  const body = el("div");
+  body.append(el("div","hd", it.title));
+  const mt = el("div","mt");
+  mt.append(el("span","rg " + it.region, it.region === "BR" ? "BRAZIL" : "GLOBAL"), el("span","tag", it.topic), el("span",null, it.src.toUpperCase()));
+  const ag = el("span","ago", ago(it.t)); ag.dataset.t = it.t.getTime(); mt.append(ag);
+  if(it.isNew) mt.append(el("span","nw","NEW"));
+  body.append(mt); a.append(body);
+  return a;
+}
+function drawRiver(full){
+  for(const c of document.querySelectorAll("#nchips .chip")) c.setAttribute("aria-pressed", c.dataset.f === NEWS.filter);
+  const cols = $("#ncols"); if(!cols) return;
+  const wide = wideNews.matches;
+  cols.classList.toggle("two", wide);
+  cols.parentElement.classList.toggle("wide", wide);
+  if(wide && (NEWS.filter === "BRAZIL" || NEWS.filter === "GLOBAL")){ NEWS.filter = "ALL"; for(const c of document.querySelectorAll("#nchips .chip")) c.setAttribute("aria-pressed", c.dataset.f === "ALL"); }
+  const lists = wide
+    ? [["BRAZIL", it=>it.region==="BR"], ["GLOBAL", it=>it.region==="GL"]]
+    : [[null, ()=>true]];
+  const scrollPos = [...cols.querySelectorAll(".wire")].map(w=>w.scrollTop);
+  cols.textContent = "";
+  lists.forEach(([label, fn], idx)=>{
+    const col = el("div","ncol");
+    let items = NEWS.items.filter(it => fn(it) && passes(it));
+    if(label){
+      const head = el("div","nh"); head.append(el("span",null,label), el("span",null, items.length + " HEADLINES"));
+      col.append(head);
+    }
+    const list = el("div","wire");
+    list.addEventListener("mouseenter", ()=>list.dataset.hold = "1");
+    list.addEventListener("mouseleave", ()=>delete list.dataset.hold);
+    list.addEventListener("touchstart", ()=>{ list.dataset.hold = "1"; clearTimeout(list._ht); }, {passive:true});
+    list.addEventListener("touchend", ()=>{ list._ht = setTimeout(()=>delete list.dataset.hold, 8000); }, {passive:true});
+    if(!items.length){
+      list.append(el("div","msg", NEWS.at ? "No headlines for this filter in the last 36 hours." : "Waiting for the first sources to answer…"));
+    } else {
+      for(const it of items) list.append(itemEl(it));
+    }
+    col.append(list); cols.append(col);
+    if(!full && scrollPos[idx] && !items.some(i=>i.isNew)) list.scrollTop = scrollPos[idx];
+  });
+  for(const it of NEWS.items) if(it.isNew && Date.now() - it.firstSeen > 600000) it.isNew = false;
+}
+function rotateSpot(){
+  const sp = $("#spot"); if(!sp || sp.classList.contains("paused") || !NEWS.items.length) return;
+  const recent = NEWS.items.filter(i => Date.now() - i.t < 4*3600000);
+  const pool = (recent.length >= 3 ? recent : NEWS.items.slice(0, 12))
+    .slice().sort((a,b)=> (b.hot - a.hot) || (b.t - a.t)).slice(0, 8);
+  const it = pool[NEWS.spot++ % pool.length];
+  sp.href = it.link;
+  sp.classList.toggle("hot", it.hot);
+  sp.children[0].textContent = `${it.hot ? "▲ HOT · " : "TOP · "}${fmtBRT(it.t).time} BRT · ${it.region === "BR" ? "BRAZIL" : "GLOBAL"} · ${it.topic} · ${it.src.toUpperCase()}`;
+  sp.children[1].textContent = it.title;
+  const b = sp.children[2]; b.style.animation = "none"; void b.offsetWidth; b.style.animation = "";
+  sp.classList.remove("swap"); void sp.offsetWidth; sp.classList.add("swap");
+}
+function tickNewsStatus(){
+  const st = $("#nstat"); if(!st) return;
+  const okN = FEEDS.filter(f=>NEWS.ok[f.id]).length;
+  const today = NEWS.items.filter(i => fmtBRT(i.t).date === fmtBRT(new Date()).date).length;
+  const left = Math.max(0, Math.round((NEWS.nextAt - Date.now())/1000));
+  st.children[0].textContent = NEWS.at ? `LIVE · UPDATED ${fmtBRT(new Date(NEWS.at)).time} · NEXT CHECK ${left}s` : "CONNECTING TO SOURCES…";
+  st.children[1].textContent = `${okN}/${FEEDS.length} SOURCES · ${today} TODAY`;
+}
+let driftLast = 0;
+function drift(ts){
+  const dt = driftLast ? Math.min(100, ts - driftLast) : 0; driftLast = ts;
+  if(NEWS.auto && !document.hidden && !matchMedia("(prefers-reduced-motion: reduce)").matches){
+    for(const w of document.querySelectorAll("#ncols .wire")){
+      if(w.dataset.hold || w.scrollHeight <= w.clientHeight + 4) continue;
+      if(w._pauseUntil && ts < w._pauseUntil) continue;
+      w._acc = (w._acc || 0) + dt * 0.018;                  // about 18 px per second
+      const step = Math.floor(w._acc);
+      if(step){ w._acc -= step; w.scrollTop += step; }
+      if(w.scrollTop + w.clientHeight >= w.scrollHeight - 2){ w._pauseUntil = ts + 4000; setTimeout(()=>{ w.scrollTop = 0; }, 3500); }
     }
   }
-  wireItems = [...map.values()].filter(i=>i.t.getTime()>=cutoff).sort((a,b)=>b.t-a.t).slice(0,80);
-  if(okN) wireAt = Date.now();
-  firstLoad = false;
-  $("#st-wr").className = "dot " + (okN===FEEDS.length ? "ok" : okN ? "warn" : "bad");
-  drawWire(okN);
-  if(fresh || okN===0) drawCrawl();
-}
-function drawWire(okN){
-  const stat = $("#wstat");
-  if(stat){
-    const p = wireAt ? fmtBRT(new Date(wireAt)) : null;
-    stat.children[0].textContent = okN===0 ? (wireAt ? `RELAY DOWN · LAST OK ${p.time} BRT` : "NEWS RELAY UNREACHABLE · RETRY IN 3 MIN") : `UPDATED ${p.time} BRT`;
-    stat.children[1].textContent = `${okN}/${FEEDS.length} FEEDS · ${wireItems.length} ITEMS`;
-  }
-  const list = $("#wire"); if(!list) return;
-  list.textContent = "";
-  if(!wireItems.length){
-    list.append(el("div","msg", okN ? "No market headlines in the last 36 hours yet." : "The news relay did not answer. Quotes and calendar keep working; TOP STORIES shows TradingView's own feed."));
-    return;
-  }
-  for(const it of wireItems){
-    const a = el("a","wi" + (it.hot?" hot":"") + (it.isNew?" new":""));
-    a.href = it.link; a.target = "_blank"; a.rel = "noopener noreferrer";
-    a.append(el("span","tm", fmtBRT(it.t).time));
-    const body = el("div");
-    body.append(el("div","hd", it.title));
-    const mt = el("div","mt"); mt.append(el("span","tag", it.tag), el("span",null, it.src.toUpperCase()), el("span",null, ago(it.t)));
-    body.append(mt); a.append(body); list.append(a);
-    it.isNew = false;
-  }
+  requestAnimationFrame(drift);
 }
 function ago(t){ const m = Math.max(0, Math.round((Date.now()-t)/60000)); return m<60 ? `${m}M AGO` : `${Math.floor(m/60)}H AGO`; }
 function drawCrawl(){
   const tr = $("#track");
-  const items = wireItems.slice(0, 24);
+  const items = NEWS.items.slice(0, 30);
   tr.style.animation = "none"; tr.textContent = "";
-  if(!items.length){ tr.append(el("span",null,"News relay unavailable · quotes and calendar remain live")); return; }
+  if(!items.length){ tr.append(el("span",null,"News sources unavailable · quotes and calendar remain live")); return; }
   for(let pass=0; pass<2; pass++){
-    for(const it of items) tr.append(el("span", it.hot ? "hot" : "", `${fmtBRT(it.t).time}  ${it.tag}  ${it.title}`));
+    for(const it of items) tr.append(el("span", it.hot ? "hot" : "", `${fmtBRT(it.t).time}  ${it.region==="BR"?"BR":"GL"} · ${it.topic}  ${it.title}`));
   }
-  requestAnimationFrame(()=>{ tr.style.animation = `crawl ${Math.max(40, tr.scrollWidth/2/70)}s linear infinite`; });
+  requestAnimationFrame(()=>{ tr.style.animation = `crawl ${Math.max(60, tr.scrollWidth/2/70)}s linear infinite`; });
 }
 
 /* ================= main loop ================= */
@@ -949,10 +1094,10 @@ setInterval(()=>{
 }, 1000);
 document.addEventListener("visibilitychange", ()=>{
   if(document.hidden) return;
-  if(Date.now()-wireAt > 180000) loadWire();
+  if(Date.now()-NEWS.at > 60000) loadNews(false);
   loadYields();
 });
-window.addEventListener("online", ()=>{ loadWire(); loadYields(); connectCrypto(); });
+window.addEventListener("online", ()=>{ loadNews(true); loadYields(); connectCrypto(); });
 
 buildClocks();
 tick();
