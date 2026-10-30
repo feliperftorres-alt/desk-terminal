@@ -151,6 +151,21 @@ tr.stale td{color:var(--mute)!important}
 
 /* wire */
 .wstat{display:flex;justify-content:space-between;gap:8px;padding:5px 12px;font-size:10px;color:var(--mute);border-bottom:1px solid var(--line)}
+.ctx{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.ct{padding:10px 12px 11px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0;display:flex;flex-direction:column;gap:5px}
+.ct:nth-child(3n){border-right:0}
+.ct-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ct-t{font:700 11px/1.1 var(--cond);letter-spacing:.12em;color:var(--amber)}
+.ct-s{font:500 9.5px/1.1 var(--cond);letter-spacing:.06em;color:var(--mute);text-align:right}
+.ct-v{font:700 21px/1.1 var(--cond);letter-spacing:.02em;align-self:flex-start;padding:0 2px;margin-left:-2px}
+.ct-x{font-size:12px;line-height:1.4;color:var(--fg)}
+.ct-d{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10.5px}
+.ct-d span{display:flex;gap:4px}
+.ct-d b{font:600 9.5px/1.4 var(--cond);letter-spacing:.08em;color:var(--mute)}
+.ct-d i{font-style:normal;color:var(--dim)}
+.ct-d i.up{color:var(--up)}.ct-d i.down{color:var(--down)}
+@media (max-width:1000px){ .ctx{grid-template-columns:repeat(2,minmax(0,1fr))} .ct:nth-child(3n){border-right:1px solid var(--line)} .ct:nth-child(2n){border-right:0} }
+@media (max-width:560px){ .ctx{grid-template-columns:minmax(0,1fr)} .ct{border-right:0!important} }
 .wire{height:520px;overflow-y:auto;overscroll-behavior:contain}
 #full .panel{border-bottom:2px solid var(--amber-dim)}
 .spot{display:block;position:relative;padding:12px 14px 14px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,rgba(255,160,40,.07),transparent 70%)}
@@ -270,7 +285,7 @@ tr.stale td{color:var(--mute)!important}
 
 <div class="foot">
   Quotes: TradingView widgets; delay shown on each panel (B3 15 min, US stocks delayed via Cboe One, FX and CFDs real time).
-  Sovereign yields: CNBC quotes, every 30 s. Crypto: Binance public stream, Coinbase as fallback.
+  Context and sovereign yields: CNBC quotes, every 30 s. Crypto: Binance public stream, Coinbase as fallback.
   News river: Valor International, CNBC, MarketWatch and NYT direct every 60 s; Guardian, BBC, MercoPress, Rio Times and Google News through free relays every 10 min. Topic and HOT tags are keyword-based.
   Event dates: Federal Reserve, BCB, BLS, ECB and IBGE published schedules as of 29 Oct 2026; FOMC dates tentative until confirmed.
   Session status ignores exchange holidays. For monitoring only, not for execution or pricing.
@@ -481,6 +496,7 @@ const US_STOCKS = [
   ["NYSE:BRK.B","Berkshire B"],["NYSE:JPM","JPMorgan"],["NYSE:XOM","Exxon Mobil"],["NYSE:V","Visa"]
 ];
 const PANELS = [
+  {id:"context", col:"F", title:"CONTEXT", badge:["rt","WHAT TODAY'S MOVES MEAN"], render:renderContext},
   {id:"news", col:"F", title:"NEWS RIVER", badge:["rt","BRAZIL · GLOBAL · LIVE"], render:renderRiver},
   {id:"brazil", col:"L", title:"BRAZIL", badge:["dl","B3 15 MIN · SPOT FX RT"], render:h=>board(h,"Brazil",[
     ["BMFBOVESPA:IBOV","Ibovespa"],["BMFBOVESPA:WIN1!","Mini Ibov Fut"],["BMFBOVESPA:IFIX","IFIX"],
@@ -845,6 +861,131 @@ function connectCrypto(){
   wsWatch = setTimeout(()=>{ if(!gotData){ try{ ws.onclose = null; ws.close(); }catch(e){} fail(); } }, 10000);
 }
 
+/* ================= context: what today's moves mean ================= */
+const CTX_SYMS = ["BRL=","MXN=","CLP=","ZAR=","COP=",".DXY",".VIX",".BVSP",".SPX","EWZ","US2Y","US10Y","BR1Y","BR2Y","BR10Y","@LCO.1","@HG.1","@GC.1"];
+const PEERS = [["MXN=","MXN"],["CLP=","CLP"],["ZAR=","ZAR"],["COP=","COP"]];
+const CTX = {q:{}, at:0};
+const num = s => { const v = parseFloat(String(s ?? "").replace(/[%,+]/g,"")); return isFinite(v) ? v : null; };
+const sgn = (v, dp=2) => v == null ? "—" : (v>0?"+":"") + v.toFixed(dp);
+const cls = (v, inv=false, eps=0.005) => v == null || Math.abs(v) < eps ? "flat" : ((v>0) !== inv ? "up" : "down");
+function renderContext(host, sec){
+  const g = el("div","ctx"); g.id = "ctx";
+  const tiles = [
+    ["bw","BRAZIL OR WORLD?","USD/BRL vs EM peers and DXY"],
+    ["usd","IBOVESPA IN DOLLARS","What a foreign investor sees"],
+    ["risk","RISK REGIME","VIX, S&P, DXY, gold, EM FX"],
+    ["prem","BRAZIL RISK PREMIUM","Brazil 10Y minus UST 10Y"],
+    ["curve","BRAZIL CURVE SHAPE","Govt yields, prior close"],
+    ["tot","TERMS OF TRADE","Brent and copper for BRL"]
+  ];
+  for(const [id, title, sub] of tiles){
+    const t = el("div","ct"); t.id = "ct-"+id;
+    const hd = el("div","ct-h"); hd.append(el("span","ct-t",title), el("span","ct-s",sub));
+    t.append(hd, el("div","ct-v","—"), el("div","ct-x","Waiting for quotes…"), el("div","ct-d"));
+    g.append(t);
+  }
+  host.append(g);
+  addNote(sec, "Computed in your browser from CNBC quotes every 30 s; changes vs. prior close. Brazil curve uses prior-day close. A reading, not advice.");
+  loadContext();
+  setInterval(()=>{ if(!document.hidden) loadContext(); }, 30000);
+}
+function setTile(id, value, valueCls, verdict, detail){
+  const t = $("#ct-"+id); if(!t) return;
+  const v = t.querySelector(".ct-v"), x = t.querySelector(".ct-x"), d = t.querySelector(".ct-d");
+  if(v.textContent !== value && v.textContent !== "—") flash(v, valueCls === "down" ? -1 : 1);
+  v.textContent = value; v.className = "ct-v " + (valueCls || "");
+  x.textContent = verdict;
+  d.textContent = "";
+  for(const [k, val, c] of detail){ const s = el("span"); s.append(el("b",null,k), el("i", c || "", val)); d.append(s); }
+}
+let ctxBusy = false;
+async function loadContext(){
+  if(ctxBusy) return; ctxBusy = true;
+  try{
+    const url = "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" + encodeURIComponent(CTX_SYMS.join("|")) + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1";
+    const list = JSON.parse(await getText(url)).FormattedQuoteResult.FormattedQuote;
+    for(const z of list) CTX.q[z.symbol] = {last:num(z.last), chg:num(z.change), pct:num(z.change_pct), prev:num(z.previous_day_closing)};
+    CTX.at = Date.now();
+    drawContext();
+    $("#ct-bw")?.closest(".panel")?.classList.remove("ctx-down");
+  }catch(e){
+    for(const t of document.querySelectorAll("#ctx .ct-x")) if(!CTX.at) t.textContent = "Quotes unavailable right now. Retrying every 30 s.";
+  }
+  ctxBusy = false;
+}
+function drawContext(){
+  const q = CTX.q, P = s => q[s]?.pct ?? null;
+  // 1. Brazil or world: positive USD/BRL change = weaker real
+  const brl = P("BRL="), dxy = P(".DXY");
+  const peers = PEERS.map(([s,l]) => [l, P(s)]).filter(([,v]) => v != null);
+  if(brl != null && peers.length){
+    const avg = peers.reduce((a,[,v]) => a+v, 0) / peers.length, idio = brl - avg;
+    let verdict;
+    if(Math.abs(brl) < 0.15) verdict = "Quiet day for the real.";
+    else if(Math.abs(idio) < 0.25) verdict = `Mostly global: the real is moving with EM peers (avg ${sgn(avg)}%).`;
+    else if(idio > 0) verdict = `Brazil-specific pressure: the real is ${idio.toFixed(2)} pp weaker than EM peers.`;
+    else verdict = `Brazil-specific support: the real is ${Math.abs(idio).toFixed(2)} pp stronger than EM peers.`;
+    setTile("bw", `USD/BRL ${sgn(brl)}%`, cls(brl, true), verdict,
+      [["EM AVG", sgn(avg)+"%", cls(avg,true)], ["BR VS PEERS", sgn(idio)+" pp", cls(idio,true)], ["DXY", sgn(dxy)+"%", ""], ...peers.map(([l,v]) => [l, sgn(v)+"%", cls(v,true)])]);
+  }
+  // 2. Ibovespa in USD
+  const ibov = P(".BVSP"), ewz = P("EWZ");
+  if(ibov != null && brl != null){
+    const usd = ((1 + ibov/100) / (1 + brl/100) - 1) * 100;
+    const fx = usd - ibov;
+    const verdict = Math.abs(fx) < 0.2 ? "Currency barely changes the picture today."
+      : fx < 0 ? `The weaker real adds ${Math.abs(fx).toFixed(2)} pp of loss for dollar investors.` : `The stronger real adds ${fx.toFixed(2)} pp for dollar investors.`;
+    setTile("usd", `${sgn(usd)}% in USD`, cls(usd), verdict,
+      [["IBOV BRL", sgn(ibov)+"%", cls(ibov)], ["FX EFFECT", sgn(fx)+" pp", cls(fx)], ["EWZ NY", sgn(ewz)+"%", cls(ewz)]]);
+  }
+  // 3. Risk regime: each signal votes +1 (risk-on) or -1 (risk-off)
+  const vix = q[".VIX"], spx = P(".SPX"), gold = P("@GC.1");
+  const emAvg = peers.length ? peers.reduce((a,[,v]) => a+v, 0)/peers.length : null;
+  const votes = [];
+  if(vix?.chg != null) votes.push(["VIX", vix.chg > 0.5 ? -1 : vix.chg < -0.5 ? 1 : 0, sgn(vix.chg)+" pts"]);
+  if(spx != null) votes.push(["S&P", spx > 0.3 ? 1 : spx < -0.3 ? -1 : 0, sgn(spx)+"%"]);
+  if(dxy != null) votes.push(["DXY", dxy > 0.25 ? -1 : dxy < -0.25 ? 1 : 0, sgn(dxy)+"%"]);
+  if(emAvg != null) votes.push(["EM FX", emAvg > 0.3 ? -1 : emAvg < -0.3 ? 1 : 0, sgn(emAvg)+"%"]);
+  if(gold != null) votes.push(["GOLD", gold > 0.8 ? -1 : 0, sgn(gold)+"%"]);
+  if(votes.length){
+    const score = votes.reduce((a,[,v]) => a+v, 0);
+    const label = score >= 2 ? "RISK-ON" : score <= -2 ? "RISK-OFF" : "MIXED";
+    const lvl = vix?.last != null ? ` VIX at ${vix.last.toFixed(1)}${vix.last >= 25 ? ", stress territory" : vix.last >= 20 ? ", elevated" : ", calm range"}.` : "";
+    setTile("risk", label, score >= 2 ? "up" : score <= -2 ? "down" : "flat",
+      `${votes.filter(v=>v[1]<0).length} of ${votes.length} signals point to risk aversion.` + lvl,
+      votes.map(([k,v,txt]) => [k, txt, v>0 ? "up" : v<0 ? "down" : "flat"]));
+  }
+  // 4. Brazil premium
+  const b10 = q["BR10Y"], u10 = q["US10Y"];
+  if(b10?.last != null && u10?.last != null){
+    const prem = (b10.last - u10.last) * 100;
+    const brLive = b10.chg != null;                          // Brazil 10Y often only updates at the close
+    const ch = brLive ? (b10.chg - (u10.chg ?? 0)) * 100 : null;
+    const lvl = prem > 1100 ? "historically wide" : prem > 900 ? "wide" : prem > 600 ? "moderate" : "tight";
+    const verdict = !brLive ? `Level ${lvl}. Brazil 10Y shown at prior close, so today's change is not computed.`
+      : Math.abs(ch) < 1 ? `Level ${lvl}; stable versus the prior close.` : ch > 0 ? `Level ${lvl}; widening ${ch.toFixed(1)} bp, Brazil paying more over Treasuries.` : `Level ${lvl}; tightening ${Math.abs(ch).toFixed(1)} bp.`;
+    setTile("prem", `${prem.toFixed(0)} bp`, brLive ? cls(ch, true, 0.5) : "flat", verdict,
+      [["BR 10Y", b10.last.toFixed(3)+"%" + (brLive ? "" : " (D-1)"), ""], ["UST 10Y", u10.last.toFixed(3)+"%", ""], ["CHG", brLive ? sgn(ch,1)+" bp" : "n/a", brLive ? cls(ch,true,0.5) : ""]]);
+  }
+  // 5. Curve shape
+  const b1 = q["BR1Y"], b2 = q["BR2Y"];
+  if(b1?.last != null && b2?.last != null && b10?.last != null){
+    const slope = (b10.last - b2.last) * 100, front = (b2.last - b1.last) * 100;
+    const shape = slope < -25 ? "Inverted" : slope < 25 ? "Flat" : slope < 150 ? "Positively sloped" : "Steep";
+    const read = slope < -25 ? "market prices rate cuts ahead." : slope > 150 ? "market demands a large term premium (fiscal or inflation risk)." : front < -10 ? "front end prices easing within two years." : "no strong signal from the curve.";
+    setTile("curve", `${shape}: ${sgn(slope,0)} bp`, "flat", `10Y minus 2Y. ${shape} curve; ${read}`,
+      [["1Y", b1.last.toFixed(2)+"%", ""], ["2Y", b2.last.toFixed(2)+"%", ""], ["10Y", b10.last.toFixed(2)+"%", ""], ["2Y–1Y", sgn(front,0)+" bp", ""]]);
+  }
+  // 6. Terms of trade
+  const brent = P("@LCO.1"), cu = P("@HG.1");
+  if(brent != null || cu != null){
+    const vals = [brent, cu].filter(v => v != null), avg = vals.reduce((a,v)=>a+v,0)/vals.length;
+    const verdict = Math.abs(avg) < 0.5 ? "Neutral for Brazilian exports today." : avg > 0 ? "Supportive: higher commodity prices help the real and exporters." : "Headwind: weaker commodities weigh on the real and exporters.";
+    setTile("tot", `${sgn(avg)}% avg`, cls(avg), verdict,
+      [["BRENT", sgn(brent)+"%", cls(brent)], ["COPPER", sgn(cu)+"%", cls(cu)], ["GOLD", sgn(gold)+"%", cls(gold)]]);
+  }
+}
+
 /* ================= news river ================= */
 // Direct feeds answer the browser themselves (CORS open) and are polled every 60 s.
 // Relayed feeds go through free public services and are polled every 10 min, best effort.
@@ -852,7 +993,7 @@ const R2J = u => "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComp
 const LOL = u => "https://api.cors.lol/?url=" + encodeURIComponent(u);
 const FEEDS = [
   {id:"valor",  src:"Valor Intl",   url:"https://valorinternational.globo.com/rss/valorinternational", mode:"direct", region:"BR", keep:"BRAZIL"},
-  {id:"cnbcT",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", mode:"direct", keep:"MARKETS"},
+  {id:"cnbcT",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", mode:"direct", keep:"WORLD"},
   {id:"cnbcM",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069", mode:"direct", keep:"MARKETS"},
   {id:"cnbcE",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258", mode:"direct", keep:"MACRO"},
   {id:"cnbcW",  src:"CNBC",         url:"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362", mode:"direct", keep:"WORLD"},
@@ -875,8 +1016,23 @@ const TOPICS = [
   ["EARNINGS", /\b(earnings|quarterly (profit|results|revenue)|beats|misses|guidance|q[1-4] (profit|results|sales))\b/i],
   ["MARKETS", /\b(stocks?|s&p|nasdaq|dow|treasur\w*|yields?|bonds?|dollar|wall street|equities|futures|ibovespa|shares|rally|selloff|sell-off|ipo)\b/i]
 ];
-const HOT = /\b(breaking|copom|selic|fomc|rate (cut|hike|decision)s?|cuts? rates|raises? rates|holds? rates|payrolls?|nonfarm|cpi|pce|ipca|tariffs?|default|downgrade|shutdown|emergency|intervention|crash|plunge|surge|soar|tumble|record high)\b/i;
-const FILTERS = ["ALL","BRAZIL","GLOBAL","CENTRAL BANKS","MACRO","POLITICS","MARKETS","EARNINGS","COMMODITIES"];
+// Relevance score: policy and data events weigh most, Brazil next, generic market words least.
+const REL = [
+  [4, /\b(copom|selic|fomc|rate (cut|hike|decision)s?|cuts? (interest )?rates|raises? (interest )?rates|holds? (interest )?rates|powell|galípolo|galipolo|banco central|central bank|monetary policy)\b/i],
+  [3, /\b(payrolls?|nonfarm|jobs report|cpi|pce|inflation|ipca|gdp|recession|fiscal|budget|arcabou[cç]o|deficit|debt ceiling|tariffs?|default|downgrade|credit rating|intervention|shutdown|treasury auction)\b/i],
+  [2, /\b(ibovespa|bovespa|brazil\w*|real|reais|petrobras|vale|haddad|lula)\b/i],
+  [1, /\b(stocks?|s&p|nasdaq|dow|treasur\w*|yields?|bonds?|dollar|oil|brent|crude|gold|copper|earnings|futures|wall street|markets?)\b/i]
+];
+const MOVE = /\b(plunge\w*|surge\w*|soar\w*|tumble\w*|crash\w*|slump\w*|sell-?off|rall(y|ies)|record high|record low)\b/i;
+const MKT = /\b(stocks?|shares|s&p|nasdaq|dow|ibovespa|treasur\w*|yields?|bonds?|dollar|real|currenc\w*|oil|brent|crude|gold|copper|futures|markets?|index|indices|equities)\b/i;
+function relevance(title, region){
+  let s = 0;
+  for(const [w, re] of REL) if(re.test(title)) s += w;
+  if(region === "BR") s += 1;
+  if(MOVE.test(title) && MKT.test(title)) s += 2;           // big moves count only when they are market moves
+  return s;
+}
+const FILTERS = ["ALL","BRAZIL","GLOBAL","CENTRAL BANKS","MACRO","POLITICS","MARKETS","EARNINGS","COMMODITIES","WORLD"];
 const NEWS = {items:[], byKey:new Map(), firstDone:false, at:0, nextAt:0, ok:{}, filter:store.get("nfilter","ALL"), auto:store.get("nauto", true), spot:0};
 const keyOf = t => t.toLowerCase().replace(/[^a-z0-9]+/g," ").trim().slice(0,72);
 const wideNews = matchMedia("(min-width:900px)");
@@ -945,7 +1101,8 @@ function classify(raw, f){
   for(const [name, re] of TOPICS){ if(re.test(title)){ topic = name; break; } }
   if(!topic) topic = f.keep || (region === "BR" ? "BRAZIL" : null);
   if(!topic) return null;                                    // feeds without a default keep only market-relevant items
-  return {title, link:raw.link, src, t: isNaN(t) ? new Date() : t, region, topic, hot: HOT.test(title)};
+  const score = relevance(title, region);
+  return {title, link:raw.link, src, t: isNaN(t) ? new Date() : t, region, topic, score, hot: score >= 5};
 }
 let newsBusy = false;
 async function loadNews(includeRelayed){
@@ -1038,8 +1195,9 @@ function drawRiver(full){
 function rotateSpot(){
   const sp = $("#spot"); if(!sp || sp.classList.contains("paused") || !NEWS.items.length) return;
   const recent = NEWS.items.filter(i => Date.now() - i.t < 4*3600000);
-  const pool = (recent.length >= 3 ? recent : NEWS.items.slice(0, 12))
-    .slice().sort((a,b)=> (b.hot - a.hot) || (b.t - a.t)).slice(0, 8);
+  const pool = (recent.length >= 3 ? recent : NEWS.items.slice(0, 12)).slice()
+    .filter(i => i.score >= 3).sort((a,b)=> (b.score - a.score) || (b.t - a.t)).slice(0, 8);
+  if(!pool.length) pool.push(...NEWS.items.slice(0, 5));
   const it = pool[NEWS.spot++ % pool.length];
   sp.href = it.link;
   sp.classList.toggle("hot", it.hot);
