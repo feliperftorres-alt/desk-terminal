@@ -220,6 +220,85 @@ tr.stale td{color:var(--mute)!important}
 .crawl:hover .track{animation-play-state:paused}
 @keyframes crawl{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
+/* ---------- TV mode ---------- */
+.tvbtn{flex:none;font:700 11px/1 var(--cond);letter-spacing:.12em;color:#000;background:var(--amber);padding:7px 10px;margin-left:auto}
+.tvbtn + .now{margin-left:0}
+html.tv-on,html.tv-on body{overflow:hidden}
+.tv{position:fixed;inset:0 0 calc(30px + env(safe-area-inset-bottom,0px)) 0;z-index:35;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.tv-top{display:flex;align-items:center;gap:14px;padding:8px max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line2);min-width:0}
+.tv-brand{display:flex;gap:5px;font:700 14px/1 var(--cond);letter-spacing:.1em}
+.tv-brand b{background:var(--amber);color:#000;padding:4px 6px}
+.tv-brand span{color:var(--amber);border:1px solid var(--amber);padding:3px 5px}
+.tv-title{min-width:0}
+.tv-k{font:600 10px/1 var(--cond);letter-spacing:.16em;color:var(--mute)}
+.tv-n{font:700 clamp(20px,2.6vw,32px)/1.05 var(--cond);letter-spacing:.06em;color:var(--amber);white-space:nowrap}
+.tv-tabs{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.tv-tabs::-webkit-scrollbar{display:none}
+.tv-tabs button{font:600 10.5px/1 var(--cond);letter-spacing:.1em;color:var(--dim);border:1px solid var(--line2);padding:6px 8px;white-space:nowrap}
+.tv-tabs button[aria-current="true"]{color:#000;background:var(--amber);border-color:var(--amber)}
+.tv-ctl{display:flex;gap:3px;align-items:stretch}
+.tv-ctl button,.tv-ctl select{font:600 12px/1 var(--cond);letter-spacing:.08em;color:var(--fg);background:#000;border:1px solid var(--line2);padding:6px 9px;border-radius:0}
+.tv-ctl button:hover,.tv-ctl select:hover{border-color:var(--amber)}
+.tv-ctl .tv-exit{color:var(--amber);border-color:var(--amber-dim)}
+.tv-clock{font:600 20px/1 var(--mono);white-space:nowrap}
+.tv-prog{height:3px;background:var(--line)}
+.tv-prog i{display:block;height:100%;width:100%;background:var(--amber);transform-origin:left;transform:scaleX(0)}
+.tv-stage{flex:1;min-height:0;position:relative;overflow:hidden}
+.scene{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;animation:scenein .5s ease-out}
+@keyframes scenein{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.sc-chart{min-height:0;border-right:1px solid var(--line2);display:flex;flex-direction:column}
+.sc-chart .cbox{flex:1;min-height:0}
+.sc-lbl{display:flex;justify-content:space-between;gap:8px;padding:7px 14px;font:700 11px/1 var(--cond);letter-spacing:.14em;color:var(--amber);border-bottom:1px solid var(--line)}
+.sc-lbl span+span{color:var(--mute);font-weight:600}
+.sc-board{min-height:0;display:flex;flex-direction:column}
+.brd{flex:1;min-height:0;overflow:hidden;position:relative}
+.brd-in{will-change:transform}
+.br{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1.1fr) minmax(0,.9fr) 52px;gap:8px;align-items:center;padding:0 14px;height:clamp(40px,6.2vh,58px);border-bottom:1px solid var(--line)}
+.br .nm{font:600 clamp(14px,1.5vw,19px)/1.1 var(--cond);letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.br .nm small{display:block;font:500 10px/1.2 var(--mono);color:var(--mute);letter-spacing:0}
+.br .lst{font:600 clamp(16px,1.75vw,24px)/1 var(--mono);text-align:right;padding:4px 4px;transition:background-color .6s}
+.br .chg{font:600 clamp(13px,1.35vw,18px)/1.1 var(--mono);text-align:right}
+.br .chg small{display:block;font-size:.72em;opacity:.8}
+.br .tm{font-size:10.5px;color:var(--mute);text-align:right}
+.br.lead{background:linear-gradient(90deg,rgba(255,160,40,.08),transparent)}
+.br.lead .nm{color:var(--amber)}
+.sc-news{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line2);min-height:0}
+.sn{display:block;padding:9px 14px 10px;border-right:1px solid var(--line);min-width:0}
+.sn:last-child{border-right:0}
+.sn .m{font:600 9.5px/1.2 var(--cond);letter-spacing:.1em;color:var(--mute)}
+.sn .t{font:600 clamp(12.5px,1.15vw,15px)/1.3 var(--cond);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sn.hot .t{color:var(--hot)}
+.sn.hot .m{color:var(--amber)}
+.scene.ctxs{display:block;overflow:auto}
+.scene.ctxs .ctx{height:100%;grid-auto-rows:1fr}
+.scene.ctxs .ct{padding:18px 20px;gap:9px;justify-content:center}
+.scene.ctxs .ct-t{font-size:clamp(12px,1.1vw,15px)}
+.scene.ctxs .ct-v{font-size:clamp(26px,3.2vw,46px)}
+.scene.ctxs .ct-x{font-size:clamp(13px,1.15vw,17px)}
+.scene.ctxs .ct-d{font-size:12px}
+.scene.news{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.nw-hero{grid-column:1 / -1;padding:clamp(14px,2.4vh,28px) 20px;border-bottom:1px solid var(--line2);background:linear-gradient(90deg,rgba(255,160,40,.08),transparent 70%)}
+.nw-hero .m{font:600 12px/1.2 var(--cond);letter-spacing:.14em;color:var(--amber)}
+.nw-hero .t{font:700 clamp(22px,3vw,42px)/1.15 var(--cond);margin-top:10px;text-wrap:balance;min-height:2.3em}
+.nw-hero.swap .t,.nw-hero.swap .m{animation:spin .5s ease-out}
+.nw-col{min-height:0;overflow:hidden;border-right:1px solid var(--line2)}
+.nw-col:last-child{border-right:0}
+.nw-col .wi .hd{font-size:clamp(13px,1.2vw,16px)}
+@media (max-width:900px){
+  .tv-top{flex-wrap:wrap;gap:8px}
+  .tv-tabs{order:5;flex-basis:100%}
+  .tv-clock{display:none}
+  .scene{grid-template-columns:minmax(0,1fr);grid-template-rows:38% minmax(0,1fr) auto}
+  .sc-chart{border-right:0;border-bottom:1px solid var(--line2)}
+  .sc-news{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sc-news .sn:nth-child(n+3){display:none}
+  .scene.news{grid-template-columns:minmax(0,1fr)}
+  .scene.news .nw-col+.nw-col{display:none}
+  .scene.ctxs .ctx{height:auto}
+}
+@media (max-width:560px){ .tv-ctl select{display:none} .br{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.9fr)} .br .tm{display:none} }
+@media (prefers-reduced-motion:reduce){ .scene,.nw-hero.swap .t{animation:none} }
+
 .foot{padding:12px 12px 18px;color:var(--mute);font-size:10.5px;line-height:1.55}
 
 @media (max-width:640px){
@@ -250,6 +329,7 @@ tr.stale td{color:var(--mute)!important}
         <span><span class="dot" id="st-wr"></span>WIRE</span>
       </div>
     </div>
+    <button class="tvbtn" id="tvBtn" title="TV mode (T)">▶ TV MODE</button>
     <div class="now"><div class="t" id="nowT">--:--:--</div><div class="d" id="nowD">BRT</div></div>
   </div>
   <form class="cmd" id="cmd" role="search" autocomplete="off">
@@ -290,7 +370,28 @@ tr.stale td{color:var(--mute)!important}
   Event dates: Federal Reserve, BCB, BLS, ECB and IBGE published schedules as of 29 Oct 2026; FOMC dates tentative until confirmed.
   Session status ignores exchange holidays. For monitoring only, not for execution or pricing.
   Search: type a ticker and press GO. B3 shares (PETR4), US stocks (AAPL), FX pairs (USDBRL), DI futures (DI1F2030) and names like BRENT, GOLD, DXY all work; for anything else use EXCHANGE:SYMBOL (e.g. NYSE:KO).
+  TV mode: press T or the TV MODE button; scenes rotate on a timer you choose. ← → change scene, space pauses, Esc exits. Add #tv to the link to open straight in TV mode.
   Keys: / focuses search · 1–9 jump to panel · click a panel header to collapse it.
+</div>
+
+<div class="tv" id="tv" hidden aria-label="TV mode">
+  <div class="tv-top">
+    <div class="tv-brand"><b>DESK</b><span>TV</span></div>
+    <div class="tv-title"><div class="tv-k" id="tvK">SCENE 1/8</div><div class="tv-n" id="tvN">BRAZIL</div></div>
+    <nav class="tv-tabs" id="tvTabs" aria-label="Scenes"></nav>
+    <div class="tv-ctl">
+      <button id="tvPrev" title="Previous scene (←)">◀</button>
+      <button id="tvPlay" title="Pause or play (space)">❚❚</button>
+      <button id="tvNext" title="Next scene (→)">▶</button>
+      <select id="tvDwell" title="Time per scene" aria-label="Time per scene">
+        <option value="30">30 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="180">3 min</option><option value="300">5 min</option>
+      </select>
+      <button id="tvExit" class="tv-exit" title="Exit TV mode (Esc)">EXIT</button>
+    </div>
+    <div class="tv-clock" id="tvClock">--:--:--</div>
+  </div>
+  <div class="tv-prog"><i id="tvBar"></i></div>
+  <div class="tv-stage" id="tvStage"></div>
 </div>
 
 <div class="crawl" aria-label="Headline crawl">
@@ -1135,7 +1236,7 @@ async function loadNews(includeRelayed){
   const first = !NEWS.firstDone;
   NEWS.firstDone = true;
   newsBusy = false;
-  if(first || added.length) { drawRiver(first); drawCrawl(); if(first) rotateSpot(); }
+  if(first || added.length) { drawRiver(first); drawCrawl(); if(first) rotateSpot(); if(TVM.on && SCENES[TVM.i].rows) tvSceneNews(); }
   tickNewsStatus();
 }
 function passes(it){
@@ -1241,6 +1342,241 @@ function drawCrawl(){
   requestAnimationFrame(()=>{ tr.style.animation = `crawl ${Math.max(60, tr.scrollWidth/2/70)}s linear infinite`; });
 }
 
+/* ================= TV mode: rotating full-screen scenes ================= */
+const RE_EU = /\b(europe\w*|euro\w*|ecb|lagarde|germany|german|france|french|britain|british|uk|u\.k\.|england|italy|italian|spain|spanish|bund|ftse|dax|stoxx|brussels|eu)\b/i;
+const RE_AS = /\b(china|chinese|beijing|japan\w*|tokyo|boj|yen|yuan|asia\w*|korea\w*|india\w*|hong kong|taiwan\w*|nikkei|pboc|australia\w*)\b/i;
+const RE_US = /\b(fed|fomc|powell|wall street|s&p|nasdaq|dow|treasur\w*|u\.s\.|us|american|white house|trump|congress|payrolls?|cpi|pce)\b/i;
+const SCENES = [
+  {id:"br", name:"BRAZIL", chart:["BMFBOVESPA:IBOV","IBOVESPA · 5 MIN"], rows:[
+    [".BVSP","Ibovespa"],[".IFIX","IFIX"],["BRL=","USD/BRL"],["EWZ","EWZ (NYSE)"],["PETR4-BR","Petrobras PN"],["VALE3-BR","Vale ON"],["ITUB4-BR","Itaú PN"],
+    ["BBDC4-BR","Bradesco PN"],["BBAS3-BR","Banco do Brasil"],["BPAC11-BR","BTG Pactual"],["B3SA3-BR","B3 ON"],["WEGE3-BR","WEG ON"],["PRIO3-BR","PRIO ON"],
+    ["SUZB3-BR","Suzano ON"],["RENT3-BR","Localiza ON"],["RDOR3-BR","Rede D'Or ON"]],
+    news: it => it.region === "BR"},
+  {id:"us", name:"UNITED STATES", chart:["FOREXCOM:SPXUSD","S&P 500 · 5 MIN"], rows:[
+    [".SPX","S&P 500"],[".NDX","Nasdaq 100"],[".DJI","Dow Jones"],[".RUT","Russell 2000"],[".VIX","VIX"],["US10Y","UST 10Y"],
+    ["NVDA","Nvidia"],["MSFT","Microsoft"],["AAPL","Apple"],["AMZN","Amazon"],["GOOGL","Alphabet"],["META","Meta"],["AVGO","Broadcom"],["TSLA","Tesla"],["JPM","JPMorgan"]],
+    news: it => it.region === "GL" && (RE_US.test(it.title) || ["MARKETS","EARNINGS","CENTRAL BANKS"].includes(it.topic)) && !RE_EU.test(it.title) && !RE_AS.test(it.title)},
+  {id:"eu", name:"EUROPE", chart:["OANDA:DE30EUR","DAX · 5 MIN"], rows:[
+    [".STOXX","Stoxx 600"],[".STOXX50E","Euro Stoxx 50"],[".GDAXI","DAX"],[".FTSE","FTSE 100"],[".FCHI","CAC 40"],[".FTMIB","FTSE MIB"],[".IBEX","IBEX 35"],
+    ["EUR=","EUR/USD"],["GBP=","GBP/USD"],["DE2Y","Bund 2Y"],["DE10Y","Bund 10Y"],["GB10Y","Gilt 10Y"],["FR10Y","OAT 10Y"],["IT10Y","BTP 10Y"]],
+    news: it => RE_EU.test(it.title)},
+  {id:"as", name:"ASIA-PACIFIC", chart:["OANDA:JP225USD","NIKKEI 225 · 5 MIN"], rows:[
+    [".N225","Nikkei 225"],[".HSI","Hang Seng"],[".SSEC","Shanghai Comp"],[".KS11","KOSPI"],[".AXJO","ASX 200"],[".NSEI","Nifty 50"],
+    ["JPY=","USD/JPY"],["CNH=","USD/CNH"],["AUD=","AUD/USD"],["JP10Y","JGB 10Y"]],
+    news: it => RE_AS.test(it.title)},
+  {id:"rt", name:"RATES & FX", chart:["FX_IDC:USDBRL","USD/BRL · 5 MIN"], rows:[
+    ["US3M","UST 3M"],["US2Y","UST 2Y"],["US10Y","UST 10Y"],["US30Y","UST 30Y"],["BR1Y","Brazil 1Y"],["BR2Y","Brazil 2Y"],["BR10Y","Brazil 10Y"],
+    ["DE10Y","Bund 10Y"],["JP10Y","JGB 10Y"],[".DXY","Dollar Index"],["BRL=","USD/BRL"],["EUR=","EUR/USD"],["JPY=","USD/JPY"],["MXN=","USD/MXN"],["CLP=","USD/CLP"]],
+    news: it => it.topic === "CENTRAL BANKS" || it.topic === "MACRO"},
+  {id:"cm", name:"COMMODITIES", chart:["OANDA:BCOUSD","BRENT · 5 MIN"], rows:[
+    ["@LCO.1","Brent"],["@CL.1","WTI"],["@NG.1","Natural Gas"],["@GC.1","Gold"],["@SI.1","Silver"],["@HG.1","Copper"],["@TIO.1","Iron Ore 62%"],
+    ["@S.1","Soybeans"],["@C.1","Corn"],["@KC.1","Coffee"],["@SB.1","Sugar"],["BTC.CM=","Bitcoin"],["ETH.CM=","Ether"]],
+    news: it => it.topic === "COMMODITIES"},
+  {id:"cx", name:"CONTEXT", type:"context"},
+  {id:"nw", name:"HEADLINES", type:"news"}
+];
+const TVM = {on:false, i:store.get("tv.i",0) % SCENES.length, dwell:store.get("tv.dwell",120), playing:true, start:0, elapsed:0, timer:null, qt:null, raf:null, q:{}, wake:null, heroI:0, heroT:null};
+function tvQuoteUrl(syms){
+  return "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" + encodeURIComponent(syms.join("|")) + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1";
+}
+function initTV(){
+  const tabs = $("#tvTabs");
+  SCENES.forEach((s, i)=>{
+    const b = el("button", null, s.name); b.dataset.i = i;
+    b.addEventListener("click", ()=>tvGo(i, true));
+    tabs.append(b);
+  });
+  const dw = $("#tvDwell"); dw.value = String(TVM.dwell);
+  if(!dw.value){ dw.value = "120"; TVM.dwell = 120; }
+  dw.addEventListener("change", ()=>{ TVM.dwell = +dw.value; store.set("tv.dwell", TVM.dwell); tvRestartClock(); });
+  $("#tvBtn").addEventListener("click", ()=>tvOpen());
+  $("#tvExit").addEventListener("click", ()=>tvClose());
+  $("#tvPrev").addEventListener("click", ()=>tvGo(TVM.i - 1, true));
+  $("#tvNext").addEventListener("click", ()=>tvGo(TVM.i + 1, true));
+  $("#tvPlay").addEventListener("click", tvToggle);
+  document.addEventListener("keydown", e=>{
+    if(e.target.closest("input,textarea,select")) return;
+    if(!TVM.on){ if((e.key==="t"||e.key==="T") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); tvOpen(); } return; }
+    if(e.key==="Escape"){ e.preventDefault(); tvClose(); }
+    else if(e.key==="ArrowRight"){ e.preventDefault(); tvGo(TVM.i + 1, true); }
+    else if(e.key==="ArrowLeft"){ e.preventDefault(); tvGo(TVM.i - 1, true); }
+    else if(e.key===" "){ e.preventDefault(); tvToggle(); }
+    e.stopImmediatePropagation();
+  }, true);
+  window.addEventListener("hashchange", ()=>{ location.hash === "#tv" ? tvOpen() : (TVM.on && tvClose()); });
+  if(location.hash === "#tv") tvOpen();
+}
+async function tvWakeLock(){
+  try{ if(navigator.wakeLock && !TVM.wake) { TVM.wake = await navigator.wakeLock.request("screen"); TVM.wake.addEventListener("release", ()=>{ TVM.wake = null; }); } }catch(e){}
+}
+function tvOpen(){
+  if(TVM.on) return;
+  TVM.on = true;
+  document.documentElement.classList.add("tv-on");
+  $("#tv").hidden = false;
+  if(location.hash !== "#tv") history.replaceState(null, "", "#tv");
+  tvWakeLock();
+  tvGo(TVM.i, false);
+  TVM.qt = setInterval(()=>{ if(!document.hidden) tvLoadQuotes(); }, 15000);
+  TVM.raf = requestAnimationFrame(tvFrame);
+}
+function tvClose(){
+  if(!TVM.on) return;
+  TVM.on = false;
+  tvLeaveScene();
+  $("#tv").hidden = true;
+  $("#tvStage").textContent = "";
+  document.documentElement.classList.remove("tv-on");
+  if(location.hash === "#tv") history.replaceState(null, "", location.pathname + location.search);
+  clearInterval(TVM.qt); cancelAnimationFrame(TVM.raf);
+  try{ TVM.wake?.release(); }catch(e){}
+  TVM.wake = null;
+}
+function tvToggle(){
+  TVM.playing = !TVM.playing;
+  $("#tvPlay").textContent = TVM.playing ? "❚❚" : "▶";
+  $("#tvPlay").title = TVM.playing ? "Pause (space)" : "Play (space)";
+  if(TVM.playing) TVM.start = performance.now() - TVM.elapsed;
+}
+function tvRestartClock(){ TVM.start = performance.now(); TVM.elapsed = 0; }
+function tvFrame(ts){
+  if(!TVM.on) return;
+  if(TVM.playing){
+    TVM.elapsed = ts - TVM.start;
+    const f = Math.min(1, TVM.elapsed / (TVM.dwell*1000));
+    $("#tvBar").style.transform = `scaleX(${f})`;
+    if(f >= 1) tvGo(TVM.i + 1, false);
+  }
+  // drift long boards so every row passes through view during the scene
+  const brd = document.querySelector("#tvStage .brd"), inner = brd?.firstElementChild;
+  if(brd && inner){
+    const over = inner.scrollHeight - brd.clientHeight;
+    if(over > 4){
+      const span = Math.max(1, TVM.dwell*1000 - 6000);
+      const p = Math.min(1, Math.max(0, (TVM.elapsed - 3000) / span));
+      const eased = p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2)/2;
+      inner.style.transform = `translateY(${-over*eased}px)`;
+    } else inner.style.transform = "";
+  }
+  const now = parts(new Date(), BRT);
+  $("#tvClock").textContent = `${pad(now.hour)}:${pad(now.minute)}:${pad(now.second)}`;
+  TVM.raf = requestAnimationFrame(tvFrame);
+}
+function tvLeaveScene(){
+  clearInterval(TVM.heroT); TVM.heroT = null;
+  const ctx = $("#ctx"), home = $("#p-context .pb");
+  if(ctx && home && !home.contains(ctx)) home.append(ctx);
+}
+function tvGo(i, manual){
+  i = (i + SCENES.length) % SCENES.length;
+  tvLeaveScene();
+  TVM.i = i; store.set("tv.i", i);
+  tvRestartClock();
+  const s = SCENES[i];
+  $("#tvK").textContent = `SCENE ${i+1}/${SCENES.length}` + (manual && !TVM.playing ? " · PAUSED" : "");
+  $("#tvN").textContent = s.name;
+  for(const b of $("#tvTabs").children) b.setAttribute("aria-current", +b.dataset.i === i);
+  $("#tvTabs").children[i]?.scrollIntoView({block:"nearest", inline:"nearest"});
+  const stage = $("#tvStage"); stage.textContent = "";
+  if(s.type === "context") return tvContextScene(stage);
+  if(s.type === "news") return tvNewsScene(stage);
+  const sc = el("div","scene");
+  const left = el("div","sc-chart");
+  const lbl = el("div","sc-lbl"); lbl.append(el("span",null,s.chart[1]), el("span",null,"TRADINGVIEW"));
+  const cbox = el("div","cbox");
+  left.append(lbl, cbox);
+  const right = el("div","sc-board");
+  const lbl2 = el("div","sc-lbl"); lbl2.append(el("span",null,"LAST · CHG · %"), el("span",null,"CNBC · BRT"));
+  const brd = el("div","brd"), inner = el("div","brd-in");
+  s.rows.forEach(([sym, label], k)=>{
+    const r = el("div","br" + (k===0 ? " lead" : "")); r.dataset.s = sym;
+    const nm = el("div","nm", label); nm.append(el("small",null, sym.replace(/-BR$/,"")));
+    r.append(nm, el("div","lst","—"), el("div","chg","—"), el("div","tm",""));
+    inner.append(r);
+  });
+  brd.append(inner); right.append(lbl2, brd);
+  const news = el("div","sc-news"); news.id = "tvNews";
+  sc.append(left, right, news);
+  stage.append(sc);
+  tvWidget(cbox, "advanced-chart", {
+    autosize:true, symbol:s.chart[0], interval:"5", timezone:BRT, theme:"dark", style:"3", locale:"en",
+    backgroundColor:"rgba(0,0,0,1)", gridColor:"rgba(255,255,255,0.04)", hide_top_toolbar:true, hide_legend:false,
+    hide_side_toolbar:true, allow_symbol_change:false, save_image:false, calendar:false, support_host:"https://www.tradingview.com"
+  });
+  tvFillQuotes(); tvLoadQuotes(); tvSceneNews();
+}
+async function tvLoadQuotes(){
+  const s = SCENES[TVM.i]; if(!s?.rows) return;
+  try{
+    const list = JSON.parse(await getText(tvQuoteUrl(s.rows.map(r=>r[0])))).FormattedQuoteResult.FormattedQuote;
+    for(const z of list) TVM.q[z.symbol] = z;
+    tvFillQuotes();
+  }catch(e){}
+}
+function tvFillQuotes(){
+  for(const r of document.querySelectorAll("#tvStage .br")){
+    const z = TVM.q[r.dataset.s]; if(!z || !z.last) continue;
+    const lst = r.children[1], chg = r.children[2], tm = r.children[3];
+    const v = num(z.last), prev = num(lst.dataset.v);
+    if(prev != null && v != null && v !== prev) flash(lst, v > prev ? 1 : -1);
+    lst.dataset.v = v ?? "";
+    lst.textContent = z.last;
+    const c = num(z.change), pc = String(z.change_pct || "").replace("UNCH","0.00%");
+    const isYield = /%$/.test(String(z.last));
+    const k = c == null || c === 0 ? "flat" : c > 0 ? "up" : "down";
+    chg.className = "chg " + k;
+    chg.textContent = isYield ? (c == null ? "—" : sgn(c*100,1) + " bp") : (z.change || "0.00");
+    if(!isYield) chg.append(el("small", null, pc || ""));
+    const t = new Date(z.last_time || z.last_timedate);
+    tm.textContent = isNaN(t) ? "" : (Date.now() - t > 20*3600000 ? fmtBRT(t).date : fmtBRT(t).time);
+  }
+}
+function tvSceneNews(){
+  const box = $("#tvNews"); if(!box) return;
+  const s = SCENES[TVM.i];
+  let items = NEWS.items.filter(s.news);
+  if(items.length < 4) items = items.concat(NEWS.items.filter(i => !items.includes(i) && i.score >= 3));
+  box.textContent = "";
+  items.slice(0, 4).forEach(it=>{
+    const a = el("a","sn" + (it.hot ? " hot" : "")); a.href = it.link; a.target = "_blank"; a.rel = "noopener noreferrer";
+    a.append(el("div","m", `${fmtBRT(it.t).time} · ${it.src.toUpperCase()} · ${it.topic}`), el("div","t", it.title));
+    box.append(a);
+  });
+  if(!box.children.length) box.append(el("div","sn", "Headlines will appear here as the news sources answer."));
+}
+function tvContextScene(stage){
+  const sc = el("div","scene ctxs");
+  const ctx = $("#ctx");
+  if(ctx) sc.append(ctx); else sc.append(el("div","msg","Context is loading…"));
+  stage.append(sc);
+  loadContext();
+}
+function tvNewsScene(stage){
+  const sc = el("div","scene news");
+  const hero = el("a","nw-hero"); hero.target = "_blank"; hero.rel = "noopener noreferrer";
+  hero.append(el("div","m","TOP HEADLINES"), el("div","t","Loading headlines…"));
+  const colB = el("div","nw-col"), colG = el("div","nw-col");
+  const fill = (col, label, fn)=>{
+    const head = el("div","nh"); head.append(el("span",null,label), el("span",null,"LATEST"));
+    col.append(head);
+    NEWS.items.filter(fn).slice(0, 9).forEach(it => col.append(itemEl(it)));
+  };
+  fill(colB, "BRAZIL", i=>i.region==="BR"); fill(colG, "GLOBAL", i=>i.region==="GL");
+  sc.append(hero, colB, colG); stage.append(sc);
+  const pool = NEWS.items.filter(i => Date.now() - i.t < 6*3600000 && i.score >= 3).sort((a,b)=>(b.score-a.score)||(b.t-a.t)).slice(0, 10);
+  const list = pool.length ? pool : NEWS.items.slice(0, 8);
+  const show = ()=>{
+    if(!list.length) return;
+    const it = list[TVM.heroI++ % list.length];
+    hero.href = it.link;
+    hero.children[0].textContent = `${it.hot ? "▲ HOT · " : ""}${fmtBRT(it.t).time} BRT · ${it.region === "BR" ? "BRAZIL" : "GLOBAL"} · ${it.topic} · ${it.src.toUpperCase()}`;
+    hero.children[1].textContent = it.title;
+    hero.classList.remove("swap"); void hero.offsetWidth; hero.classList.add("swap");
+  };
+  show();
+  TVM.heroT = setInterval(show, 7000);
+}
+
 /* ================= main loop ================= */
 function tick(){ const now = new Date(); tickClocks(now); tickEvents(now); }
 let lastBeat = Date.now();
@@ -1271,6 +1607,7 @@ tvWidget($("#tape"), "ticker-tape", Object.assign({}, base, {
   ]
 }));
 buildPanels();
+initTV();
 </script>
 </body>
 </html>
